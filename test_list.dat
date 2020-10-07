@@ -1,3 +1,6 @@
 #k2v    kl   kv    input_file
- 0.5    1     1
- 1      10    1
+ 1      1     1    /home/cmilke/Documents/dihiggs/validation/slurm/hist-slurm_l1cvv1cv1_hh4b.root
+ 0.5    1     1    /home/cmilke/Documents/dihiggs/validation/slurm/hist-slurm_l1cvv0p5cv1_hh4b.root
+ 1      10    1    /home/cmilke/Documents/dihiggs/validation/slurm/hist-slurm_l10cvv1cv1_hh4b.root
+ 2      1     1    /home/cmilke/Documents/dihiggs/validation/slurm/hist-slurm_l1cvv2cv1_hh4b.root
+ 0      0     1    /home/cmilke/Documents/dihiggs/validation/slurm/hist-slurm_l0cvv0cv1_hh4b.root
