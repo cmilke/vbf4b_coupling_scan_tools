@@ -3,6 +3,7 @@ import argparse
 import sympy
 import numpy
 import uproot
+import inspect
 
 import matplotlib
 matplotlib.use('Agg')
@@ -42,17 +43,24 @@ def get_amplitude_function(basis_parameters, output_equation):
     return amplitude_function
 
 
-def plot_histogram(hist_name, edge_list, coupling_parameters, combination_function, verification_weights):
+def plot_histogram(hist_name, edge_list, coupling_parameters, combination_function, verification_weights, verification_errors):
         linearly_combined_weights = combination_function(coupling_parameters)
         print('Plotting '+hist_name+' for ' + str(coupling_parameters))
         fig,ax = plt.subplots()
 
-        if len(verification_weights) > 0:
-            vcounts, vbins, vhist = plt.hist( edge_list[:-1], weights=verification_weights,
-                label='Generated MC', bins=edge_list, linewidth=2, histtype='step')
+        counts, bins, hist = plt.errorbar( 0.5*(edge_list[1:]+edge_list[:-1]), linearly_combined_weights,
+            label='Linear Combination', marker='.', color='blue', linestyle='none', linewidth=3, zorder=3)
 
-        counts, bins, hist = plt.hist( edge_list[:-1], weights=linearly_combined_weights,
-            label='Linear Combination', bins=edge_list, linewidth=3, histtype='step', linestyle='dotted')
+        if len(verification_weights) > 0:
+            vcounts, vbins, vhists = plt.hist( [edge_list[:-1]]*2,
+                weights=[verification_weights-verification_errors, 2*verification_errors],
+                label=['Generated MC', 'MC Statistical Error'],
+                bins=edge_list, fill=True, histtype='barstacked', zorder=1, alpha=0.5, color=['green','red'])
+            plt.setp(vhists[1], hatch='/////')
+
+            #scounts, sbins, shist = plt.errorbar( 0.5*(vbins[1:]+vbins[:-1]), verification_weights,
+                #yerr=verification_errors, label='MC Statistical Error check', linewidth=1, fmt='none', zorder=2)
+
 
 
         kappa_labels = [ str(param) for param in coupling_parameters ]
@@ -85,17 +93,21 @@ def display_linear_combinations(amplitude_function, basis_files, verification_pa
     combination_function = lambda params: amplitude_function(*params, *weight_list)
 
     verification_weight_list = []
+    verification_error_list = []
     for verification_file in verification_files:
         directory = uproot.open(verification_file)
         root_hist = directory[hist_key]
         weights, edges = root_hist.numpy()
+        errors = numpy.sqrt(root_hist.variances)
         verification_weight_list.append(weights)
+        verification_error_list.append(errors)
 
     for index, coupling_parameters in enumerate(verification_parameters):
         verification_weights = []
         if len(verification_weight_list) > 0:
             verification_weights = verification_weight_list[index]
-        plot_histogram(hist_key.decode(), edge_list, coupling_parameters, combination_function, verification_weights)
+            verification_errors = verification_error_list[index]
+        plot_histogram(hist_key.decode(), edge_list, coupling_parameters, combination_function, verification_weights, verification_errors)
 
 
 
