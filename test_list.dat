@@ -4,3 +4,4 @@
  1      10    1    /home/cmilke/Documents/dihiggs/validation/slurm/hist-slurm_l10cvv1cv1_hh4b.root
  2      1     1    /home/cmilke/Documents/dihiggs/validation/slurm/hist-slurm_l1cvv2cv1_hh4b.root
  0      0     1    /home/cmilke/Documents/dihiggs/validation/slurm/hist-slurm_l0cvv0cv1_hh4b.root
+ 1     0    -1    basis_files/basis_test00/hist-basis_test00_l0cvv1cv-1_hh4b.root
