@@ -55,6 +55,7 @@ def perform_reweighting(amplitude_function, basis_files, reweight_parameter_arra
     #print(reweight_parameter_array)
     array_length = len(reweight_parameter_array)
     reweight_linear_array = numpy.reshape(reweight_parameter_array, (array_length**3,3))
+    print(len(reweight_linear_array))
     #rint()
     #rint(reweight_linear_array)
     weight_list = [ combination_function(params)/basis_weight_list[0] for params in reweight_linear_array ]
@@ -64,7 +65,7 @@ def perform_reweighting(amplitude_function, basis_files, reweight_parameter_arra
     #rint()
     #rint(weight_array)
     #print(weight_list)
-    print(len(bin_heights))
+    print(len(weight_list))
     print(len(weight_array))
 
 

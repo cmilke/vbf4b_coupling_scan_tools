@@ -75,6 +75,7 @@ def get_amplitude_function(basis_parameters):
     ]
 
     kappa_matrix = sympy.Matrix([ [ g(*base) for g in gamma_list ] for base in basis_states])
+    if kappa_matrix.det() == 0: return None
     inversion = kappa_matrix.inv()
     kappa = sympy.Matrix([ [g(_k2v,_kl,_kv)] for g in gamma_list ])
     amplitudes = sympy.Matrix([ sympy.Symbol(f'A{n}') for n in range(6) ])
@@ -89,7 +90,7 @@ def get_amplitude_function(basis_parameters):
 
 
 
-def perform_optimization(amplitude_function, basis_files, coupling_array):
+def perform_optimization(amplitude_function, basis_files, coupling_list):
     if len(basis_files) < 1: return
 
     hist_key = b'HH_m'
@@ -105,10 +106,10 @@ def perform_optimization(amplitude_function, basis_files, coupling_array):
     combination_function = lambda params: amplitude_function(*params, *basis_weight_list)
 
     # Get Normalized (per basis) weights
-    array_length = len(coupling_array)
-    coupling_linear_array = numpy.reshape(coupling_array, (_k2v_len*_kl_len*_kv_len,3))
+
+
     norm_weight_list = []
-    for couplings in coupling_linear_array:
+    for couplings in coupling_list:
         bins = combination_function(couplings)
         total = bins.sum()
         norm_weight = bins if total == 0 else bins/total
@@ -150,10 +151,10 @@ def perform_optimization(amplitude_function, basis_files, coupling_array):
         basis_contenders[winning_basis_index].add_bin(lost_index)
         bin_ownership[lost_index] = winning_basis_index
         if weakest_basis.is_out_of_bins(): del basis_contenders[losing_basis_index]
-    final_couplings = [ [round(coupling,2) for coupling in coupling_linear_array[basis_index]] for basis_index in basis_contenders ]
+    final_couplings = [ [round(coupling,2) for coupling in coupling_list[basis_index]] for basis_index in basis_contenders ]
     for c in final_couplings: print(c)
     get_amplitude_function(final_couplings) # Make sure the final states are actually invertable
-    plot_all_couplings(amplitude_function, basis_files, final_couplings)
+    plot_all_couplings('optimized_', amplitude_function, basis_files, final_couplings)
         
         
         
@@ -187,12 +188,29 @@ def main():
             basis_parameters.append(linedata[:3])
             basis_files.append(linedata[3])
 
-    coupling_nested_list = [  [ [[k2v,kl,kv] for kv in _kv_coupling_range] for kl in _kl_coupling_range ] for k2v in _k2v_coupling_range  ]
-    coupling_array = numpy.array(coupling_nested_list)
+    #coupling_nested_list = [  [ [[k2v,kl,kv] for kv in _kv_coupling_range] for kl in _kl_coupling_range ] for k2v in _k2v_coupling_range  ]
+    #coupling_array = numpy.array(coupling_nested_list)
+    #coupling_list = numpy.reshape(coupling_array, (_k2v_len*_kl_len*_kv_len,3))
+    validation_states = [
+        [1    , 1   , 1   ],
+        [0    , 1   , 1   ],
+        [0.5  , 1   , 1   ],
+        [1.5  , 1   , 1   ],
+        [2    , 1   , 1   ],
+        [3    , 1   , 1   ],
+        [1    , 0   , 1   ],
+        [1    , 2   , 1   ],
+        [1    , 10  , 1   ],
+        [1    , 1   , 0.5 ],
+        [1    , 1   , 1.5 ],
+        [0    , 0   , 1   ]
+    ]
+
+    coupling_list = validation_states
 
     # Get amplitude function and perform reweighting
     amplitude_function = get_amplitude_function(basis_parameters)
-    perform_optimization(amplitude_function, basis_files, coupling_array)
+    perform_optimization(amplitude_function, basis_files, coupling_list)
 
 
 

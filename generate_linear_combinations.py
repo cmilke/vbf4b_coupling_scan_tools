@@ -43,6 +43,10 @@ def get_amplitude_function(basis_parameters, output_equation):
             with open('final_amplitude.tex','w') as output:
                 output.write('$\n'+sympy.latex(final_amplitude)+'\n$\n')
 
+    print( final_amplitude.subs([ (f'A{n}',a) for n, a in enumerate([1,2,3,4,5,6])]).subs(_kv,1) )
+    exit(0)
+
+
     amplitude_function = sympy.lambdify([_k2v, _kl, _kv]+[*amplitudes], final_amplitude, 'numpy')
     return amplitude_function
 
@@ -65,8 +69,10 @@ def plot_histogram(hist_name, hist_title, edge_list, coupling_parameters, combin
             bins=edge_list, fill=True, histtype='barstacked', zorder=1, alpha=0.5, color=['green','red'])
         plt.setp(vhists[1], hatch='/////')
 
-        rcounts, rbins, rpoints = ax_ratio.errorbar( xpositions, (linearly_combined_weights-verification_weights)/verification_errors,
-            yerr=linearly_combined_errors/verification_errors, label='MC Statistical Error check',
+        safe_verification = verification_errors.copy()
+        safe_verification[ safe_verification == 0 ] = float('inf')
+        rcounts, rbins, rpoints = ax_ratio.errorbar( xpositions, (linearly_combined_weights-verification_weights),
+            yerr=linearly_combined_errors/safe_verification, label='MC Statistical Error check',
             marker='.', markersize=2, capsize=2, color='blue', linestyle='none', linewidth=1, zorder=3)
         
         zero_line = ax_ratio.hlines(0,xmin=edge_list[0],xmax=edge_list[-1],colors='black',zorder=2)
@@ -83,7 +89,7 @@ def plot_histogram(hist_name, hist_title, edge_list, coupling_parameters, combin
     #ax_main.set(ylabel='')
     ax_ratio.set_ylim([-2,2])
     ax_ratio.set_yticks(ticks=[-2,-1,0,1,2])
-    ax_ratio.set(ylabel=r'$\frac{lin. comb. - gen.}{stat. error}$', xlabel='Truth $m_{HH}$ (MeV)')
+    ax_ratio.set(ylabel=r'$\frac{lin. comb. - gen.}{stat. error}$', xlabel='Truth $m_{HH}$ (GeV)')
     ax_main.legend(prop={'size':7})
     ax_main.grid()
     ax_ratio.grid()

@@ -1,3 +1,4 @@
+import os
 import sys
 import argparse
 import sympy
@@ -40,7 +41,10 @@ def get_amplitude_function(basis_parameters):
     return amplitude_function
 
 
-def plot_scan(name,title, title_suffix, reweight_linear_array,bin_edges,xedges,yedges,weight_list,**kwargs):
+def plot_scan(name,title, title_suffix, reweight_linear_array,
+            bin_edges, xedges, yedges, weight_list, 
+            plotdir='', **kwargs):
+
     flat_counts = weight_list.flatten(order='F')
 
     fig,ax = plt.subplots()
@@ -62,12 +66,12 @@ def plot_scan(name,title, title_suffix, reweight_linear_array,bin_edges,xedges,y
     plt.grid(axis='y', which='major')
     plt.title(title+' Coupling Distribution '+title_suffix)
     plt.tight_layout()
-    fig.savefig('plots/coupling_scan_'+name+'.png',dpi=500)
+    fig.savefig('plots/'+plotdir+'coupling_scan_'+name+'.png',dpi=500)
     plt.close()
 
 
 
-def plot_all_couplings(amplitude_function, basis_files, coupling_parameter_array):
+def plot_all_couplings(prefix, amplitude_function, basis_files, coupling_parameter_array, plotdir=''):
     if len(basis_files) < 1: return
 
     hist_key = b'HH_m'
@@ -99,18 +103,22 @@ def plot_all_couplings(amplitude_function, basis_files, coupling_parameter_array
     horizontally_normalized_weight_list = numpy.array( [ safe_divide(w,w.sum()) for w in weight_list] )
     vertically_normalized_weight_list =  weight_list / weight_list.sum(axis=0) 
     hash_normalized_weight_list = horizontally_normalized_weight_list / horizontally_normalized_weight_list.sum(axis=0)
+    hash_max_normalized_weight_list = horizontally_normalized_weight_list / horizontally_normalized_weight_list.max(axis=0)
 
     #error_list = weight_list / error_list
     #horizontally_normalized_error_list = numpy.array( [ e/e.sum() for e in error_list] )
     #vertically_normalized_error_list =  error_list / error_list.sum(axis=0) 
     #hash_normalized_error_list = horizontally_normalized_weight_list / horizontally_normalized_weight_list.sum(axis=0)
 
-    plot_scan('base','', 'Weights',coupling_linear_array,bin_edges,xedges,yedges,weight_list)
-    plot_scan('hori','Horizontally Normalized', 'Weights',coupling_linear_array,bin_edges,xedges,yedges,horizontally_normalized_weight_list)
-    plot_scan('hori_log','(Log) Horizontally Normalized', 'Weights',coupling_linear_array,bin_edges,xedges,yedges,horizontally_normalized_weight_list,
-        norm = matplotlib.colors.LogNorm(vmin=10e-4) )
-    plot_scan('vert','Vertically Normalized', 'Weights',coupling_linear_array,bin_edges,xedges,yedges,vertically_normalized_weight_list)
-    plot_scan('hash','Hash Normalized', 'Weights',coupling_linear_array,bin_edges,xedges,yedges,hash_normalized_weight_list)
+    if not os.path.isdir('plots/'+plotdir): os.mkdir('plots/'+plotdir)
+
+    #plot_scan(prefix+'base','', 'Weights',coupling_linear_array,bin_edges,xedges,yedges,weight_list, plotdir=plotdir)
+    #plot_scan(prefix+'hori','Horizontally Normalized', 'Weights',coupling_linear_array,bin_edges,xedges,yedges,horizontally_normalized_weight_list, plotdir=plotdir)
+    #plot_scan(prefix+'hori_log','(Log) Horizontally Normalized', 'Weights',coupling_linear_array,bin_edges,xedges,yedges,horizontally_normalized_weight_list,
+        #norm = matplotlib.colors.LogNorm(vmin=10e-4) , plotdir=plotdir)
+    #plot_scan(prefix+'vert','Vertically Normalized', 'Weights',coupling_linear_array,bin_edges,xedges,yedges,vertically_normalized_weight_list, plotdir=plotdir)
+    #plot_scan(prefix+'hash','Hash Normalized', 'Weights',coupling_linear_array,bin_edges,xedges,yedges,hash_normalized_weight_list, plotdir=plotdir)
+    plot_scan(prefix+'hash_max','Hash-Max Normalized', 'Weights',coupling_linear_array,bin_edges,xedges,yedges,hash_max_normalized_weight_list, plotdir=plotdir)
 
     #plot_scan('E-base','', 'Weight/Errors',coupling_linear_array,bin_edges,xedges,yedges,error_list)
     #plot_scan('E-hori','Horizontally Normalized', 'Errors',coupling_linear_array,bin_edges,xedges,yedges,horizontally_normalized_error_list)
@@ -146,32 +154,54 @@ def main():
     #coupling_range = [-20,-10,-5,-2,-1,0,1,2,5,10,20]
     #coupling_nested_list = [  [ [[k2v,kl,kv] for kv in coupling_range] for kl in coupling_range ] for k2v in coupling_range  ]
     coupling_nested_list = [ #k2v, kl, kv
-        [1,1,1],
-        #[1,1,2],
-        #[1,1,3],
-        [1,2,1],
-        [1,3,1],
-        [2,1,1],
-        [3,1,1],
-        [2,2,2],
-        [2,2,1],
-        [2,1,2],
-        [1,2,2],
-        [1,1,-1],
-        [1,-1,1],
-        [-1,1,1],
-        [1    , 1   , 1   ],
-        [0    , 1   , 1   ],
-        [0.5  , 1   , 1   ],
+        #[1,1,1],
+        ##[1,1,2],
+        ##[1,1,3],
+        #[1,2,1],
+        #[1,3,1],
+        #[2,1,1],
+        #[3,1,1],
+        #[2,2,2],
+        #[2,2,1],
+        #[2,1,2],
+        #[1,2,2],
+        #[1,1,-1],
+        #[1,-1,1],
+        #[-1,1,1],
+
+        #[1    , 1   , 1   ],
+        #[0    , 1   , 1   ],
+        #[0.5  , 1   , 1   ],
+        #[1.5  , 1   , 1   ],
+        #[2    , 1   , 1   ],
+        #[3    , 1   , 1   ],
+        #[1    , 0   , 1   ],
+        #[1    , 2   , 1   ],
+        #[1    , 10  , 1   ],
+        #[1    , 1   , 0.5 ],
+        #[1    , 1   , 1.5 ],
+        #[0    , 0   , 1   ],
+
+        #[0    , 1   , 1   ],
+        #[3    , 1   , 1   ],
+        #[1    , 2   , 1   ],
+        #[1    , 1   , 0.5 ],
+        #[1    , 1   , 1.5 ],
+        #[0    , 0   , 1   ],
+
         [1.5  , 1   , 1   ],
         [2    , 1   , 1   ],
-        [3    , 1   , 1   ],
+        [1  , 1   , 1.5   ],
+        [1    , 1   , 1   ],
         [1    , 0   , 1   ],
-        [1    , 2   , 1   ],
         [1    , 10  , 1   ],
-        [1    , 1   , 0.5 ],
-        [1    , 1   , 1.5 ],
-        [0    , 0   , 1   ],
+
+        #[3  , -1   , 1.2   ],
+        #[2.6, -14.5, 0.4   ],
+        #[4.6, -3   , -2.2   ],
+        #[3.4, -0.5 , -1.8   ],
+        #[0.2    , -10   , 0.2   ],
+        #[1.2    , -10.5  , -1.6   ],
 
     ]
     coupling_parameter_array = numpy.array(coupling_nested_list[::-1])
@@ -179,7 +209,7 @@ def main():
 
     # Get amplitude function and perform reweighting
     amplitude_function = get_amplitude_function(basis_parameters)
-    plot_all_couplings(amplitude_function, basis_files, coupling_parameter_array)
+    plot_all_couplings('valid_', amplitude_function, basis_files, coupling_parameter_array)
 
 
 
