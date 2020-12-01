@@ -6,14 +6,7 @@ import uproot
 import inspect
 import itertools
 
-from basis_scan import plot_all_couplings
 import reweight_utils
-
-
-def is_valid_combination(basis_parameters, base_equations):
-    basis_states = [ [ sympy.Rational(param) for param in basis ] for basis in basis_parameters ]
-    combination_matrix = sympy.Matrix([ [ f(*base) for f in base_equations ] for base in basis_states])
-    return combination_matrix.det() != 0
 
 
 def perform_optimization(amplitude_function, basis_files, coupling_array, base_equations=reweight_utils.full_equation_list):
@@ -53,7 +46,7 @@ def perform_optimization(amplitude_function, basis_files, coupling_array, base_e
     weighted_combinations = [ list(zip(*c)) for c in coupling_combinations ]
 
     print('Filtering to valid combinations...')
-    valid_combinations = [ (numpy.array(c),numpy.array(w)) for c,w in weighted_combinations if is_valid_combination(c, base_equations) ]
+    valid_combinations = [ (numpy.array(c),numpy.array(w)) for c,w in weighted_combinations if reweight_utils.is_valid_combination(c, base_equations=base_equations) ]
     print('Sorting...')
     ordered_combinations = [ ( weights.max(axis=0).sum(), couplings ) for couplings, weights in valid_combinations ]
     ordered_combinations.sort(reverse=True,key=lambda c: c[0])
@@ -69,7 +62,7 @@ def perform_optimization(amplitude_function, basis_files, coupling_array, base_e
         print(val)
         print(arr)
         reweight_utils.get_amplitude_function(final_couplings, base_equations=base_equations, output='tex', name=f'recoR{index}')
-        plot_all_couplings(f'kl_R{index}_', amplitude_function, basis_files, arr[::-1], plotdir='auto_chosen/')
+        reweight_utils.plot_all_couplings(f'kl_R{index}_', amplitude_function, basis_files, arr[::-1], plotdir='auto_chosen/')
         print()
     #print()
     #print(final_couplings)
