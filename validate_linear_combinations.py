@@ -77,7 +77,7 @@ def plot_histogram(hist_name, hist_title, edge_list, coupling_parameters,
     plt.close()
 
 
-def retrieve_truth_data(file_list, hist_key=b'HH_m'):
+def extract_truth_data(file_list, hist_key=b'HH_m'):
     weight_list = []
     error_list = []
     edge_list = []
@@ -95,33 +95,10 @@ def retrieve_truth_data(file_list, hist_key=b'HH_m'):
 
 
 def retrieve_truth_combination(amplitude_function, basis_files, hist_key=b'HH_m'):
-    basis_weight_list, basis_error_list, edge_list = retrieve_truth_data(basis_files, hist_key=hist_key)
+    basis_weight_list, basis_error_list, edge_list = extract_truth_data(basis_files, hist_key=hist_key)
     combination_function = lambda params: amplitude_function(*params, *basis_weight_list)
     error_function = lambda params: amplitude_function(*params, *basis_error_list)
     return combination_function, basis_weight_list, basis_error_list, edge_list
-
-
-def retrieve_truthDAOD_combination(amplitude_function, basis_files):
-    basis_weight_list, basis_error_list, edge_list = retrieve_truth_data(basis_files, hist_key=b'truth_mHH_hist')
-    combination_function = lambda params: amplitude_function(*params, *basis_weight_list)
-    error_function = lambda params: amplitude_function(*params, *basis_error_list)
-    return combination_function, error_function, edge_list
-
-
-
-def validate_truth_combinations(basis_parameters, basis_files, verification_parameters, verification_files):
-    amplitude_function = reweight_utils.get_amplitude_function(basis_parameters, base_equations=_scan_terms)
-    combination_function, basis_weight_list, basis_error_list, edge_list = retrieve_truth_combination(amplitude_function, basis_files)
-    verification_weight_list, verification_error_list = retrieve_truth_data(verification_files)[:2]
-
-    for index, coupling_parameters in enumerate(verification_parameters):
-        linearly_combined_weights = combination_function(coupling_parameters)
-        linearly_combined_errors = error_function(coupling_parameters)
-
-        plot_histogram('truth_mHH', 'Full-Truth Linear Combination:\n$m_{HH}$', edge_list, coupling_parameters,
-            linearly_combined_weights, linearly_combined_errors,
-            verification_weight_list, verification_error_list)
-
 
 
 def extract_ntuple_events(ntuple, mhh_key='m_hh', unit_conversion=1):
@@ -138,36 +115,16 @@ def extract_ntuple_events(ntuple, mhh_key='m_hh', unit_conversion=1):
 
 def retrieve_reco_weights(mHH_edges, reco_events):
     event_weights = reco_events[1]
-
     reco_weights = numpy.histogram(reco_events[0], bins=mHH_edges, weights=event_weights)[0]
-
     reco_errors = numpy.zeros( len(reco_weights) )
     event_bins = numpy.digitize(reco_events[0],mHH_edges)
     for i in range(len(reco_errors)):
-        #binned_weights = reco_events[1][ event_bins == i ]
         binned_weights = event_weights[ event_bins == i ]
         error2_array = binned_weights**2
         error = math.sqrt( error2_array.sum() )
         reco_errors[i] = error
 
     return reco_weights, reco_errors
-
-
-def retrieve_reco_truth_combination(amplitude_function, basis_files):
-    mHH_edges = numpy.arange(0, 2050, 50)
-
-    basis_weight_list = []
-    basis_error_list = []
-    for base_file in basis_files:
-        #base_events = extract_ntuple_events(base_file,mhh_key='truth_mhh',unit_conversion=1/1000)
-        base_events = extract_ntuple_events(base_file)
-        base_weights, base_errors = retrieve_reco_weights(mHH_edges, base_events)
-        basis_weight_list.append(base_weights)
-        basis_error_list.append(base_errors)
-    combination_function = lambda params: amplitude_function(*params, *basis_weight_list)
-    error_function = lambda params: amplitude_function(*params, *basis_error_list)
-    return combination_function, error_function, mHH_edges
-
 
 
 def truth_reweight( basis_parameters, combination_components, coupling_parameters, reco_base_bins, mHH_edges):
@@ -193,28 +150,6 @@ def truth_reweight( basis_parameters, combination_components, coupling_parameter
 
 
 
-def validate_reweighting_method(basis_parameters, basis_files, verification_parameters, verification_files):
-    amplitude_function = reweight_utils.get_amplitude_function(basis_parameters, base_equations=_scan_terms)
-    combination_components = retrieve_truth_combination(amplitude_function, basis_files)
-    #combination_components = retrieve_truthDAOD_combination(amplitude_function, basis_files)
-    #combination_components = retrieve_reco_truth_combination(amplitude_function, basis_files)
-
-
-    verification_events_list = [ extract_ntuple_events(v,mhh_key='truth_mhh',unit_conversion=1/1000) for v in verification_files ]
-    #verification_events_list = [ extract_ntuple_events(v) for v in verification_files ]
-    reco_base_events = verification_events_list[0] # 0th couplings for basis and verification must be the same
-
-    mHH_edges = combination_components[-1]
-    reco_base_bins = retrieve_reco_weights(mHH_edges, reco_base_events)
-    for index, coupling_parameters in enumerate(verification_parameters):
-        verification_weights, verification_errors = retrieve_reco_weights(mHH_edges, verification_events_list[index])
-        combined_weights, combined_errors = truth_reweight( basis_parameters, combination_components, coupling_parameters, reco_base_bins, mHH_edges)
-        plot_histogram('rwgt_mHH', 'Truth-Reweighted NNT:\n$m_{HH}$', mHH_edges, coupling_parameters,
-                 combined_weights, combined_errors,
-                 verification_weights, verification_errors, normalize=True
-        )
-
-
 def reco_reweight(mHH_edges, reweight_vector, coupling_parameters, base_weights, base_errors):
     multiplier_vector = reweight_vector(*coupling_parameters)[0]
 
@@ -226,6 +161,39 @@ def reco_reweight(mHH_edges, reweight_vector, coupling_parameters, base_weights,
 
     return linearly_combined_weights, linearly_combined_errors
 
+
+
+def validate_truth_combinations(basis_parameters, basis_files, verification_parameters, verification_files):
+    amplitude_function = reweight_utils.get_amplitude_function(basis_parameters, base_equations=_scan_terms)
+    combination_function, basis_weight_list, basis_error_list, edge_list = retrieve_truth_combination(amplitude_function, basis_files)
+    verification_weight_list, verification_error_list = extract_truth_data(verification_files)[:2]
+
+    for index, coupling_parameters in enumerate(verification_parameters):
+        linearly_combined_weights = combination_function(coupling_parameters)
+        linearly_combined_errors = error_function(coupling_parameters)
+
+        plot_histogram('truth_mHH', 'Full-Truth Linear Combination:\n$m_{HH}$', edge_list, coupling_parameters,
+            linearly_combined_weights, linearly_combined_errors,
+            verification_weight_list, verification_error_list)
+
+
+
+def validate_reweighting_method(basis_parameters, basis_files, verification_parameters, verification_files):
+    amplitude_function = reweight_utils.get_amplitude_function(basis_parameters, base_equations=_scan_terms)
+    combination_components = retrieve_truth_combination(amplitude_function, basis_files)
+
+    verification_events_list = [ extract_ntuple_events(v,mhh_key='truth_mhh',unit_conversion=1/1000) for v in verification_files ]
+    reco_base_events = verification_events_list[0] # 0th couplings for basis and verification must be the same
+
+    mHH_edges = combination_components[-1]
+    reco_base_bins = retrieve_reco_weights(mHH_edges, reco_base_events)
+    for index, coupling_parameters in enumerate(verification_parameters):
+        verification_weights, verification_errors = retrieve_reco_weights(mHH_edges, verification_events_list[index])
+        combined_weights, combined_errors = truth_reweight( basis_parameters, combination_components, coupling_parameters, reco_base_bins, mHH_edges)
+        plot_histogram('rwgt_mHH', 'Truth-Reweighted NNT:\n$m_{HH}$', mHH_edges, coupling_parameters,
+                 combined_weights, combined_errors,
+                 verification_weights, verification_errors, normalize=True
+        )
 
 
 def validate_reco_method(basis_parameters, basis_files, verification_parameters, verification_files):
