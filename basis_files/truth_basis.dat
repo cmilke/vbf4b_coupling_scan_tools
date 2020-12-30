@@ -1,0 +1,7 @@
+#k2v    kl   kv    input_file
+1       1     1      /home/cmilke/Documents/dihiggs/coupling_scan/basis_files/out_mc16_13TeV.450044.MGH7EvtGen_MMHT2014_hh_bbbb_vbf_l1cvv1cv1.deriv.DAOD_EXOT8.e7254_s3126_r10201_p4089/DAODoutput.root
+2       1     1      /home/cmilke/Documents/dihiggs/coupling_scan/basis_files/out_mc16_13TeV.450046.MGH7EvtGen_MMHT2014_hh_bbbb_vbf_l1cvv2cv1.deriv.DAOD_EXOT8.e7254_s3126_r10201_p4089/DAODoutput.root
+3/2     1     1      /home/cmilke/Documents/dihiggs/coupling_scan/basis_files/out_mc16_13TeV.450047.MGH7EvtGen_MMHT2014_hh_bbbb_vbf_l1cvv1p5cv1.deriv.DAOD_EXOT8.e7254_s3126_r10201_p4089/DAODoutput.root
+0       1     1/2    /home/cmilke/Documents/dihiggs/coupling_scan/basis_files/out_mc16_13TeV.450051.MGH7EvtGen_MMHT2014_hh_bbbb_vbf_l1cvv0cv0p5.deriv.DAOD_EXOT8.e7254_e5984_s3126_r10201_r10210_p4089_tid23039562_00/DAODoutput.root
+1       0     1      /home/cmilke/Documents/dihiggs/coupling_scan/basis_files/out_mc16_13TeV.450050.MGH7EvtGen_MMHT2014_hh_bbbb_vbf_l1cvv0cv1.deriv.DAOD_EXOT8.e7254_s3126_r10201_p4089/DAODoutput.root
+1       10    1      /home/cmilke/Documents/dihiggs/coupling_scan/basis_files/out_mc16_13TeV.450055.MGH7EvtGen_MMHT2014_hh_bbbb_vbf_l10cvv1cv1.deriv.DAOD_EXOT8.e7254_s3126_r10201_p4089/DAODoutput.root

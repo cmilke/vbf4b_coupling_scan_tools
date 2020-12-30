@@ -6,19 +6,35 @@ import numpy
 import uproot
 import inspect
 
+#import pdb
+
 import matplotlib
 matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 
 import reweight_utils
 
+_scan_terms = reweight_utils.full_scan_terms
+#_scan_terms = reweight_utils.k2v_scan_terms
+
 
 def plot_histogram(hist_name, hist_title, edge_list, coupling_parameters,
         linearly_combined_weights, linearly_combined_errors,
-        verification_weights, verification_errors):
+        verification_weights, verification_errors, xlabel='Truth $m_{HH}$ (GeV)', normalize=False):
 
     print('Plotting '+hist_name+' for ' + str(coupling_parameters))
     fig, (ax_main, ax_ratio) = plt.subplots(2, sharex=True, gridspec_kw={'height_ratios':[4,1]} )
+
+    if normalize:
+        linear_normalization = linearly_combined_weights.sum()
+        verification_normalization = verification_weights.sum()
+
+        linearly_combined_weights /= linear_normalization
+        #linearly_combined_errors /= linear_normalization
+        linearly_combined_errors /= 10000
+        verification_weights /= verification_normalization
+        verification_errors /= verification_normalization
+
 
     xpositions = 0.5*(edge_list[1:]+edge_list[:-1])
     counts, bins, points = ax_main.errorbar( xpositions, linearly_combined_weights,
@@ -49,7 +65,7 @@ def plot_histogram(hist_name, hist_title, edge_list, coupling_parameters,
     ax_main.set(ylabel='Bin Weight')
     ax_ratio.set_ylim([-2,2])
     ax_ratio.set_yticks(ticks=[-2,-1,0,1,2])
-    ax_ratio.set(ylabel=r'$\frac{lin. comb. - gen.}{stat. error}$', xlabel='Truth $m_{HH}$ (GeV)')
+    ax_ratio.set(ylabel=r'$\frac{lin. comb. - gen.}{stat. error}$', xlabel=xlabel)
     ax_main.legend(prop={'size':7})
     ax_main.grid()
     ax_ratio.grid()
@@ -61,8 +77,7 @@ def plot_histogram(hist_name, hist_title, edge_list, coupling_parameters,
     plt.close()
 
 
-def retrieve_truth_data(file_list):
-    hist_key = b'HH_m'
+def retrieve_truth_data(file_list, hist_key=b'HH_m'):
     weight_list = []
     error_list = []
     edge_list = []
@@ -72,14 +87,22 @@ def retrieve_truth_data(file_list):
         weights, edges = root_hist.numpy()
         errors = numpy.sqrt(root_hist.variances)
         weight_list.append(weights)
+        #linear_combination[ abs(linear_combination) == float('inf') ] = 0 # Just to avoid Nan issues
         error_list.append(errors)
         if len(edge_list) == 0: edge_list = edges
     return weight_list, error_list, edge_list
 
 
 
-def retrieve_truth_combination(amplitude_function, basis_files):
-    basis_weight_list, basis_error_list, edge_list = retrieve_truth_data(basis_files)
+def retrieve_truth_combination(amplitude_function, basis_files, hist_key=b'HH_m'):
+    basis_weight_list, basis_error_list, edge_list = retrieve_truth_data(basis_files, hist_key=hist_key)
+    combination_function = lambda params: amplitude_function(*params, *basis_weight_list)
+    error_function = lambda params: amplitude_function(*params, *basis_error_list)
+    return combination_function, basis_weight_list, basis_error_list, edge_list
+
+
+def retrieve_truthDAOD_combination(amplitude_function, basis_files):
+    basis_weight_list, basis_error_list, edge_list = retrieve_truth_data(basis_files, hist_key=b'truth_mHH_hist')
     combination_function = lambda params: amplitude_function(*params, *basis_weight_list)
     error_function = lambda params: amplitude_function(*params, *basis_error_list)
     return combination_function, error_function, edge_list
@@ -87,8 +110,8 @@ def retrieve_truth_combination(amplitude_function, basis_files):
 
 
 def validate_truth_combinations(basis_parameters, basis_files, verification_parameters, verification_files):
-    amplitude_function = reweight_utils.get_amplitude_function(basis_parameters)
-    combination_function, error_function, edge_list = retrieve_truth_combination(amplitude_function, basis_files)
+    amplitude_function = reweight_utils.get_amplitude_function(basis_parameters, base_equations=_scan_terms)
+    combination_function, basis_weight_list, basis_error_list, edge_list = retrieve_truth_combination(amplitude_function, basis_files)
     verification_weight_list, verification_error_list = retrieve_truth_data(verification_files)[:2]
 
     for index, coupling_parameters in enumerate(verification_parameters):
@@ -104,6 +127,8 @@ def validate_truth_combinations(basis_parameters, basis_files, verification_para
 def extract_ntuple_events(ntuple, mhh_key='m_hh', unit_conversion=1):
     ttree = uproot.rootio.open(ntuple)[b'sig']
     frame = ttree.pandas.df(branches=[mhh_key,'mc_sf'])
+    #frame = ttree.pandas.df(branches=[mhh_key,'mc_sf','pass_vbf_sel'])
+    #frame = frame[ frame['pass_vbf_sel'] ]
     masses  = frame[mhh_key][:,0].values * unit_conversion
     weights = frame['mc_sf'][:,0].values
     events = (masses,weights)
@@ -111,9 +136,8 @@ def extract_ntuple_events(ntuple, mhh_key='m_hh', unit_conversion=1):
 
 
 
-def retrieve_reco_weights(mHH_edges, reco_events, reweight_array=None):
+def retrieve_reco_weights(mHH_edges, reco_events):
     event_weights = reco_events[1]
-    if type(reweight_array) != type(None): event_weights = reco_events[1]*reweight_array
 
     reco_weights = numpy.histogram(reco_events[0], bins=mHH_edges, weights=event_weights)[0]
 
@@ -129,75 +153,98 @@ def retrieve_reco_weights(mHH_edges, reco_events, reweight_array=None):
     return reco_weights, reco_errors
 
 
+def retrieve_reco_truth_combination(amplitude_function, basis_files):
+    mHH_edges = numpy.arange(0, 2050, 50)
 
-def truth_reweight( combination_components, coupling_parameters, sm_events, mHH_edges):
-    combination_function, error_function, edge_list = combination_components
+    basis_weight_list = []
+    basis_error_list = []
+    for base_file in basis_files:
+        #base_events = extract_ntuple_events(base_file,mhh_key='truth_mhh',unit_conversion=1/1000)
+        base_events = extract_ntuple_events(base_file)
+        base_weights, base_errors = retrieve_reco_weights(mHH_edges, base_events)
+        basis_weight_list.append(base_weights)
+        basis_error_list.append(base_errors)
+    combination_function = lambda params: amplitude_function(*params, *basis_weight_list)
+    error_function = lambda params: amplitude_function(*params, *basis_error_list)
+    return combination_function, error_function, mHH_edges
+
+
+
+def truth_reweight( basis_parameters, combination_components, coupling_parameters, reco_base_bins, mHH_edges):
+    combination_function, basis_weight_list, basis_error_list, edge_list = combination_components
+    basis_list = [ [eval(n) for n in b ] for b in basis_parameters ]
 
     linear_combination = combination_function(coupling_parameters)
-    sm_truth_weights = combination_function([1,1,1])
-    sm_truth_weights[ sm_truth_weights == 0 ] = float('inf') # Just to avoid Nan issues
-    reweight_array = linear_combination / sm_truth_weights
+    reweight_vector = reweight_utils.get_amplitude_function(basis_parameters, base_equations=_scan_terms, as_scalar=False)(*coupling_parameters)[0]
 
-    binned_SM = numpy.digitize(sm_events[0], edge_list)
-    event_weights_multiplier = reweight_array[binned_SM]
-    reweighted_reco_weights, reweighted_reco_error = retrieve_reco_weights(mHH_edges, sm_events, reweight_array=event_weights_multiplier)
+    truth_base_weights = basis_weight_list[0].copy()
+    truth_base_weights[ truth_base_weights == 0. ] = float('inf') # Just to avoid Nan issues
+    reweight_array = linear_combination / truth_base_weights
+    reco_truth_ratio = reco_base_bins[0] / truth_base_weights
 
-    linearly_combined_errors = error_function([1,1,1])
-    #combined_errors = linearly_combined_errors
-    combined_errors = reweighted_reco_error
+    reweighted_reco_weights = reweight_array * reco_base_bins[0]
+
+    base_error2 = ( reweight_array * reco_base_bins[1] )**2
+    truth_error2 = reco_truth_ratio**2 * numpy.array([ (e*m)**2 for e,m in zip(basis_error_list[1:], reweight_vector[1:]) ]).sum(axis=0)
+    base_truth_error2 = reco_truth_ratio**2 * ( reweight_vector[0] - reweight_array )**2
+    combined_errors = numpy.sqrt( base_error2 + truth_error2 + base_truth_error2 )
 
     return reweighted_reco_weights, combined_errors
 
 
 
 def validate_reweighting_method(basis_parameters, basis_files, verification_parameters, verification_files):
-    amplitude_function = reweight_utils.get_amplitude_function(basis_parameters)
+    amplitude_function = reweight_utils.get_amplitude_function(basis_parameters, base_equations=_scan_terms)
     combination_components = retrieve_truth_combination(amplitude_function, basis_files)
+    #combination_components = retrieve_truthDAOD_combination(amplitude_function, basis_files)
+    #combination_components = retrieve_reco_truth_combination(amplitude_function, basis_files)
 
-    #verification_events_list = [ extract_ntuple_events(v,mhh_key='truth_mhh',unit_conversion=1/1000) for v in verification_files ]
-    verification_events_list = [ extract_ntuple_events(v) for v in verification_files ]
-    sm_events = verification_events_list[0] #Assume SM file is the zeroth
-    #sm_events = extract_ntuple_events(verification_files[0], mhh_key='truth_mhh', unit_conversion=1/1000)
 
-    mHH_edges = numpy.arange(0, 2050, 50)
+    verification_events_list = [ extract_ntuple_events(v,mhh_key='truth_mhh',unit_conversion=1/1000) for v in verification_files ]
+    #verification_events_list = [ extract_ntuple_events(v) for v in verification_files ]
+    reco_base_events = verification_events_list[0] # 0th couplings for basis and verification must be the same
+
+    mHH_edges = combination_components[-1]
+    reco_base_bins = retrieve_reco_weights(mHH_edges, reco_base_events)
     for index, coupling_parameters in enumerate(verification_parameters):
         verification_weights, verification_errors = retrieve_reco_weights(mHH_edges, verification_events_list[index])
-        combined_weights, combined_errors = truth_reweight( combination_components, coupling_parameters, sm_events, mHH_edges)
-
+        combined_weights, combined_errors = truth_reweight( basis_parameters, combination_components, coupling_parameters, reco_base_bins, mHH_edges)
         plot_histogram('rwgt_mHH', 'Truth-Reweighted NNT:\n$m_{HH}$', mHH_edges, coupling_parameters,
                  combined_weights, combined_errors,
-                 verification_weights, verification_errors
+                 verification_weights, verification_errors, normalize=True
         )
 
 
-def reco_reweight(mHH_edges, reweight_vector, coupling_parameters, base_events_list):
-
+def reco_reweight(mHH_edges, reweight_vector, coupling_parameters, base_weights, base_errors):
     multiplier_vector = reweight_vector(*coupling_parameters)[0]
 
-    reweighted_events_list = []
-    for multiplier, events in zip(multiplier_vector, base_events_list):
-        reweighted_events_list.append( numpy.array( [events[0], events[1]*multiplier] ) )
-    reweighted_events = numpy.concatenate(reweighted_events_list, axis=1)
+    reweighted_weights = numpy.array([ w*m for w,m in zip(base_weights, multiplier_vector) ])
+    linearly_combined_weights = reweighted_weights.sum(axis=0)
 
-    #combined_weights = numpy.histogram(reweighted_events[0], bins=mHH_edges, weights=reweighted_events[1])[0]
-    return retrieve_reco_weights(mHH_edges, reweighted_events)
+    reweighted_errors2 = numpy.array([ (w*m)**2 for w,m in zip(base_errors, multiplier_vector) ])
+    linearly_combined_errors = numpy.sqrt( reweighted_errors2.sum(axis=0) )
+
+    return linearly_combined_weights, linearly_combined_errors
 
 
 
 def validate_reco_method(basis_parameters, basis_files, verification_parameters, verification_files):
-    reweight_vector = reweight_utils.get_amplitude_function(basis_parameters, as_scalar=False)
-
-    base_events_list = [ extract_ntuple_events(b) for b in basis_files ]
-    verification_events_list = [ extract_ntuple_events(v) for v in verification_files ]
-
+    reweight_vector = reweight_utils.get_amplitude_function(basis_parameters, as_scalar=False, base_equations=_scan_terms)
     mHH_edges = numpy.arange(0, 2050, 50)
+
+    verification_events_list = [ extract_ntuple_events(v) for v in verification_files ]
+    base_events_list = [ extract_ntuple_events(b) for b in basis_files ]
+    base_histograms = [ retrieve_reco_weights(mHH_edges, base_events) for base_events in base_events_list ]
+    base_weights, base_errors = numpy.array(list(zip(*base_histograms)))
+
     for verification_events, coupling_parameters in zip(verification_events_list, verification_parameters):
         verification_weights, verification_errors = retrieve_reco_weights(mHH_edges, verification_events)
-        combined_weights, combined_errors = reco_reweight(mHH_edges, reweight_vector, coupling_parameters, base_events_list)
+        combined_weights, combined_errors = reco_reweight(mHH_edges, reweight_vector, coupling_parameters, base_weights, base_errors)
 
         plot_histogram('reco_mHH', 'NNT-Based Linear Combination:\n$m_{HH}$', mHH_edges, coupling_parameters,
                  combined_weights, combined_errors,
-                 verification_weights, verification_errors
+                 verification_weights, verification_errors,
+                 xlabel='Reconstructed $m_{HH}$ (GeV)'
         )
 
 
@@ -238,6 +285,7 @@ def main():
             verification_parameters.append(params)
             verification_files.append(linedata[3])
 
+    #pdb.set_trace()
     if args.mode == 'truth':
         validate_truth_combinations(basis_parameters, basis_files, verification_parameters, verification_files)
     elif args.mode == 'reweight':

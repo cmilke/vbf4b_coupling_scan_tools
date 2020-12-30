@@ -1,0 +1,7 @@
+#k2v    kl   kv    input_file
+ 1      1     1   /home/cmilke/Documents/dihiggs/nano_ntuples/truth_mhh/vbf4b_l1cvv1cv1_r10724.root
+ 1      2     1   /home/cmilke/Documents/dihiggs/nano_ntuples/truth_mhh/vbf4b_l2cvv1cv1_r10724.root
+ 0      1     1   /home/cmilke/Documents/dihiggs/nano_ntuples/truth_mhh/vbf4b_l1cvv0cv1_r10724.root
+ 4      1     1   /home/cmilke/Documents/dihiggs/nano_ntuples/truth_mhh/vbf4b_l1cvv4cv1_r10724.root
+ 2      1     1   /home/cmilke/Documents/dihiggs/nano_ntuples/truth_mhh/vbf4b_l1cvv2cv1_r10724.root
+.5      1     1   /home/cmilke/Documents/dihiggs/nano_ntuples/truth_mhh/vbf4b_l1cvv0p5cv1_r10724.root
