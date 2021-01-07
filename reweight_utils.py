@@ -1,303 +1,177 @@
-import sympy
+import math
 import numpy
-import itertools
+import uproot
 
-_k2v = sympy.Symbol('\kappa_{2V}')
-_kl = sympy.Symbol('\kappa_{\lambda}')
-_kv = sympy.Symbol('\kappa_{V}')
+import combination_utils
 
-kl_scan_terms = [
-    lambda k2v,kl,kv: kl**2,
-    lambda k2v,kl,kv: kl,
-    lambda k2v,kl,kv: 1
-]
+_scan_terms = combination_utils.full_scan_terms
 
-k2v_scan_terms = [
-    lambda k2v,kl,kv: k2v**2
-   ,lambda k2v,kl,kv: k2v
-   ,lambda k2v,kl,kv: 1
-]
+##########################################
+#######     Data Retrieval         #######
+##########################################
 
-kl_k2v_scan_terms = [
-    lambda k2v,kl,kv: kl**2
-   ,lambda k2v,kl,kv: k2v**2
-   ,lambda k2v,kl,kv: kl
-   ,lambda k2v,kl,kv: k2v * kl
-   ,lambda k2v,kl,kv: k2v
-   ,lambda k2v,kl,kv: 1
-]
-
-full_scan_terms = [
-    lambda k2v,kl,kv: kv**2 * kl**2,
-    lambda k2v,kl,kv: kv**4,
-    lambda k2v,kl,kv: k2v**2,
-    lambda k2v,kl,kv: kv**3 * kl,
-    lambda k2v,kl,kv: k2v * kl * kv,
-    lambda k2v,kl,kv: kv**2 * k2v
-]
+def extract_lhe_events(rootfile, key_list):
+    ttree = uproot.rootio.open(rootfile)['tree']
+    events = ttree.pandas.df(branches=['weight',*key_list])
+    return events
 
 
 
-def is_valid_combination(basis_parameters, base_equations=full_scan_terms):
-    basis_states = [ [ sympy.Rational(param) for param in basis ] for basis in basis_parameters ]
-    combination_matrix = sympy.Matrix([ [ f(*base) for f in base_equations ] for base in basis_states])
-    return combination_matrix.det() != 0
+def retrieve_lhe_weights(lhe_events, kinematic_variable, bin_edges):
+    event_weights = lhe_events['weight'].values
+    event_kinematics = lhe_events[kinematic_variable].values
+    reco_weights = numpy.histogram(event_kinematics, weights=event_weights, bins=bin_edges)[0]
+    reco_errors = numpy.zeros( len(reco_weights) )
+    event_bins = numpy.digitize(event_kinematics,bin_edges)
+    for i in range(len(reco_errors)):
+        binned_weights = event_weights[ event_bins == i ]
+        error2_array = binned_weights**2
+        error = math.sqrt( error2_array.sum() )
+        reco_errors[i] = error
+    return reco_weights, reco_errors
 
 
 
-def get_amplitude_function( basis_parameters, as_scalar=True, base_equations=full_scan_terms, name='unnamed', output=None):
-    basis_states = [ [ sympy.Rational(param) for param in basis ] for basis in basis_parameters ]
-
-    combination_matrix = sympy.Matrix([ [ g(*base) for g in base_equations ] for base in basis_states])
-
-    if combination_matrix.det() == 0: return None
-
-    inversion = combination_matrix.inv()
-    term_vector = sympy.Matrix([ [g(_k2v,_kl,_kv)] for g in base_equations ])
-    amplitudes = sympy.Matrix([ sympy.Symbol(f'A{n}') for n in range(len(base_equations)) ])
-
-    if as_scalar:
-        # FYI, numpy outputs a 1x1 matrix here, so I use the [0] to get just the equation
-        final_amplitude = (term_vector.T*inversion*amplitudes)[0]
-        if output == 'ascii': sympy.pprint(final_amplitude)
-        if output == 'tex':
-            substitutions = [ (a, f'Abs(A({i},{j},{k}))**2') for a, (i,j,k) in zip(amplitudes, basis_parameters) ]
-            out_equation = final_amplitude.subs(substitutions)
-            with open('final_amplitude_'+name+'.tex','w') as output:
-                output.write('$\n'+sympy.latex(out_equation)+'\n$\n')
-
-        amplitude_function = sympy.lambdify([_k2v, _kl, _kv]+[*amplitudes], final_amplitude, 'numpy')
-        return amplitude_function
-    else:
-        final_weight = term_vector.T * inversion
-        reweight_vector = sympy.lambdify([_k2v, _kl, _kv], final_weight, 'numpy')
-        return reweight_vector
+def extract_lhe_truth_data(file_list, mHH_edges):
+    weight_list, error_list = [], []
+    for f in file_list:
+        events = extract_lhe_events(f,['HH_m'])
+        weights, errors = retrieve_lhe_weights(events, 'HH_m', mHH_edges)
+        weight_list.append(weights)
+        error_list.append(errors)
+    return weight_list, error_list
 
 
 
-def plot_scan(name,title, title_suffix, reweight_linear_array,
-            bin_edges, xedges, yedges, weight_list, 
-            plotdir='', **kwargs):
-
-    flat_counts = weight_list.flatten(order='F')
-
-    fig,ax = plt.subplots()
-    counts, xbins, ybins, hist = plt.hist2d( *bin_edges, bins=(xedges,yedges)
-        , weights=flat_counts, **kwargs )
-    param_ticks = numpy.array(yedges)[:-1]+0.5
-    padded_params = list(reweight_linear_array)
-    param_labels = [ f'{c2v},{cl},{cv}' for (c2v,cl,cv) in padded_params ]
-    plt.xlabel('$m_{HH}$')
-    plt.ylabel('Basis')
-    #plt.yticks(ticks=param_ticks, labels=param_labels, fontsize=7, va='center_baseline')
-    #ax.yaxis.set_minor_locator(matplotlib.ticker.FixedLocator(param_ticks))
-    #ax.yaxis.set_minor_formatter(matplotlib.ticker.FixedFormatter(param_labels))
-    ax.set_yticklabels('')
-    ax.set_yticks(param_ticks-0.5)
-    ax.set_yticks(param_ticks, minor=True)
-    ax.set_yticklabels(param_labels, minor=True, fontsize=5)
-    plt.colorbar()
-    plt.grid(axis='y', which='major')
-    plt.title(title+' Coupling Distribution '+title_suffix)
-    plt.tight_layout()
-    fig.savefig('plots/'+plotdir+'coupling_scan_'+name+'.png',dpi=500)
-    plt.close()
-
-
-
-def plot_all_couplings(prefix, amplitude_function, basis_files, coupling_parameter_array, plotdir=''):
-    if len(basis_files) < 1: return
-
-    hist_key = b'HH_m'
-    basis_weight_list = []
-    basis_error_list = []
+def extract_truth_data(file_list, hist_key=b'HH_m'):
+    yedge = 2000
+    final_bin = None
+    weight_list = []
+    error_list = []
     edge_list = []
-    for base_file in basis_files:
-        directory = uproot.open(base_file)
+    for f in file_list:
+        directory = uproot.open(f)
         root_hist = directory[hist_key]
         weights, edges = root_hist.numpy()
         errors = numpy.sqrt(root_hist.variances)
-        basis_weight_list.append(weights)
-        basis_error_list.append(errors)
-        if len(edge_list) == 0: edge_list = edges
+        if final_bin == None:
+            final_bin = numpy.argmax(edges > yedge)
+            edge_list = edges[:final_bin]
+
+        weight_list.append(weights[:final_bin-1])
+        error_list.append(errors[:final_bin-1])
+    return weight_list, error_list, edge_list
+
+
+
+def retrieve_lhe_truth_combination(amplitude_function, basis_files, mHH_edges):
+    basis_weight_list, basis_error_list = extract_lhe_truth_data(basis_files, mHH_edges)
     combination_function = lambda params: amplitude_function(*params, *basis_weight_list)
-    error_function = lambda params: amplitude_function(*params, *basis_error_list)
+    return combination_function, basis_weight_list, basis_error_list, mHH_edges
 
-    array_length = len(coupling_parameter_array)
-    #reweight_linear_array = numpy.reshape(coupling_parameter_array, (array_length**3,3))
-    coupling_linear_array = coupling_parameter_array
-    weight_list = numpy.array([ combination_function(params) for params in coupling_linear_array ])
-    error_list = numpy.array([ error_function(params) for params in coupling_linear_array ])
 
-    xedges = edge_list
-    yedges = range(len(coupling_linear_array)+1)
-    bin_edges = numpy.array([ (x,y) for x in xedges[:-1] for y in yedges[:-1] ]).transpose()
+def extract_ntuple_events(ntuple, mhh_key='m_hh', unit_conversion=1):
+    ttree = uproot.rootio.open(ntuple)[b'sig']
+    frame = ttree.pandas.df(branches=[mhh_key,'mc_sf'])
+    #frame = ttree.pandas.df(branches=[mhh_key,'mc_sf','pass_vbf_sel'])
+    #frame = frame[ frame['pass_vbf_sel'] ]
+    masses  = frame[mhh_key][:,0].values * unit_conversion
+    weights = frame['mc_sf'][:,0].values
+    #weights *= 58.45 #for MC16e
+    events = (masses,weights)
+    return events
 
-    safe_divide = lambda l,s: l if s == 0 else l/s
-    horizontally_normalized_weight_list = numpy.array( [ safe_divide(w,w.sum()) for w in weight_list] )
-    vertically_normalized_weight_list =  weight_list / weight_list.sum(axis=0) 
-    hash_normalized_weight_list = horizontally_normalized_weight_list / horizontally_normalized_weight_list.sum(axis=0)
-    hash_max_normalized_weight_list = horizontally_normalized_weight_list / horizontally_normalized_weight_list.max(axis=0)
 
-    #error_list = weight_list / error_list
-    #horizontally_normalized_error_list = numpy.array( [ e/e.sum() for e in error_list] )
-    #vertically_normalized_error_list =  error_list / error_list.sum(axis=0) 
-    #hash_normalized_error_list = horizontally_normalized_weight_list / horizontally_normalized_weight_list.sum(axis=0)
+def retrieve_reco_weights(mHH_edges, reco_events):
+    event_weights = reco_events[1]
+    reco_weights = numpy.histogram(reco_events[0], bins=mHH_edges, weights=event_weights)[0]
+    reco_errors = numpy.zeros( len(reco_weights) )
+    event_bins = numpy.digitize(reco_events[0],mHH_edges)
+    for i in range(len(reco_errors)):
+        binned_weights = event_weights[ event_bins == i ]
+        error2_array = binned_weights**2
+        error = math.sqrt( error2_array.sum() )
+        reco_errors[i] = error
 
-    if not os.path.isdir('plots/'+plotdir): os.mkdir('plots/'+plotdir)
-
-    #plot_scan(prefix+'base','', 'Weights',coupling_linear_array,bin_edges,xedges,yedges,weight_list, plotdir=plotdir)
-    #plot_scan(prefix+'hori','Horizontally Normalized', 'Weights',coupling_linear_array,bin_edges,xedges,yedges,horizontally_normalized_weight_list, plotdir=plotdir)
-    #plot_scan(prefix+'hori_log','(Log) Horizontally Normalized', 'Weights',coupling_linear_array,bin_edges,xedges,yedges,horizontally_normalized_weight_list,
-        #norm = matplotlib.colors.LogNorm(vmin=10e-4) , plotdir=plotdir)
-    #plot_scan(prefix+'vert','Vertically Normalized', 'Weights',coupling_linear_array,bin_edges,xedges,yedges,vertically_normalized_weight_list, plotdir=plotdir)
-    #plot_scan(prefix+'hash','Hash Normalized', 'Weights',coupling_linear_array,bin_edges,xedges,yedges,hash_normalized_weight_list, plotdir=plotdir)
-    plot_scan(prefix+'hash_max','Hash-Max Normalized', 'Weights',coupling_linear_array,bin_edges,xedges,yedges,hash_max_normalized_weight_list, plotdir=plotdir)
-
-    #plot_scan('E-base','', 'Weight/Errors',coupling_linear_array,bin_edges,xedges,yedges,error_list)
-    #plot_scan('E-hori','Horizontally Normalized', 'Errors',coupling_linear_array,bin_edges,xedges,yedges,horizontally_normalized_error_list)
-    #plot_scan('E-hori_log','(Log) Horizontally Normalized', 'Errors',coupling_linear_array,bin_edges,xedges,yedges,horizontally_normalized_error_list,
-    #    normalize = matplotlib.colors.LogNorm(vmin=10e-4) )
-    #plot_scan('E-vert','Vertically Normalized', 'Weight/Errors',coupling_linear_array,bin_edges,xedges,yedges,vertically_normalized_error_list, vmin=0)
-    #plot_scan('E-hash','Hash Normalized', 'Errors',coupling_linear_array,bin_edges,xedges,yedges,hash_normalized_error_list)
+    return reco_weights, reco_errors
 
 
 
+##########################################
+### Reweighting/combination Techniques ###
+##########################################
+
+
+def obtain_linear_combination(coupling_parameters, combination_function, coefficient_function, basis_error_list):
+        linearly_combined_weights = combination_function(coupling_parameters)
+        vector_coefficients = coefficient_function(coupling_parameters)
+        error_term_list = [ (c*err)**2 for c, err in zip(vector_coefficients, basis_error_list) ]
+        linearly_combined_errors = numpy.sqrt( sum(error_term_list) )
+        return linearly_combined_weights, linearly_combined_errors
+    
+
+
+def truth_truth_reweight( basis_parameters, combination_components, coupling_parameters,
+                events, base_distro, key, bin_edges):
+
+    combination_function, basis_weight_list, basis_error_list, base_edge_list = combination_components
+
+    linear_combination = combination_function(coupling_parameters)
+    reweight_vector = combination_utils.get_amplitude_function(basis_parameters, base_equations=_scan_terms, as_scalar=False)(*coupling_parameters)[0]
+
+    truth_base_weights = basis_weight_list[0].copy()
+    truth_base_weights[ truth_base_weights == 0. ] = float('inf') # Just to avoid Nan issues
+    reweight_array = linear_combination / truth_base_weights
+
+    events = events.copy()
+    indices = numpy.digitize(events[base_distro],base_edge_list)-1
+    events['reweight'] = events['weight'] * reweight_array[indices]
+
+    events['kinematic error'] = (reweight_array[indices] * events['weight'])**2
+    events['base SM error']  = ( (events['weight']/truth_base_weights[indices]) * (reweight_vector[0] - reweight_array[indices]) * basis_error_list[0][indices] )**2
+    events['base other error'] = numpy.zeros(len(events))
+    for i in range(len(reweight_vector)-1):
+        events['base other error'] += ( (events['weight']/truth_base_weights[indices]) * reweight_vector[i+1] * basis_error_list[i+1][indices] )**2
+    events['error'] = numpy.sqrt( events['kinematic error'] + events['base SM error'] + events['base other error'] )
+
+    rw_weights = numpy.histogram(events[key], bins=bin_edges, weights=events['reweight'])[0]
+    rw_errors = numpy.zeros( len(rw_weights) )
+    for i in range(len(rw_errors)): rw_errors[i] = numpy.sqrt( sum(events[ indices == i ]['error']**2) )
+
+    return rw_weights, rw_errors
 
 
 
-def main():
-    #full_basis_states = [
-    #    ('1'  , '1', '1'  ),
-    #    ('1'  , '0', '-1' ),
-    #    ('0'  , '1', '1'  ),
-    #    ('3/2', '1', '1'  ),
-    #    ('1'  , '2', '1'  ),
-    #    ('2'  , '1', '-1' )
-    #]
+def truth_reweight( basis_parameters, combination_components, coupling_parameters, reco_base_bins, mHH_edges):
+    combination_function, basis_weight_list, basis_error_list = combination_components
+    basis_list = [ [eval(n) for n in b ] for b in basis_parameters ]
 
-    #validation_states = [
-    #    [1    , 1   , 1   ],
-    #    [0    , 1   , 1   ],
-    #    [0.5  , 1   , 1   ],
-    #    [1.5  , 1   , 1   ],
-    #    [2    , 1   , 1   ],
-    #    [3    , 1   , 1   ],
-    #    [1    , 0   , 1   ],
-    #    [1    , 2   , 1   ],
-    #    [1    , 10  , 1   ],
-    #    [1    , 1   , 0.5 ],
-    #    [1    , 1   , 1.5 ],
-    #    [0    , 0   , 1   ]
-    #]
+    linear_combination = combination_function(coupling_parameters)
+    reweight_vector = combination_utils.get_amplitude_function(basis_parameters, base_equations=_scan_terms, as_scalar=False)(*coupling_parameters)[0]
 
-    #possible_validation_combinations = itertools.combinations(validation_states,6)
-    #total_possible = 0
-    #for combination in possible_validation_combinations:
-    #    total_possible += get_amplitude_function(str(combination), full_scan_terms, combination)
-    #print()
-    #print(total_possible)
+    truth_base_weights = basis_weight_list[0].copy()
+    truth_base_weights[ truth_base_weights == 0. ] = float('inf') # Just to avoid Nan issues
+    reweight_array = linear_combination / truth_base_weights
+    reco_truth_ratio = reco_base_bins[0] / truth_base_weights
 
-    #validation_basis = [
-    #    [1.5  , 1   , 1   ], #
-    #    [2    , 1   , 1   ], #
-    #    [1  , 1   , 1.5   ],
-    #    [1    , 1   , 1   ], #
-    #    [1    , 0   , 1   ], #
-    #    [1    , 10  , 1   ], #
-    #]
-    ##get_amplitude_function('validation', full_scan_terms, validation_basis)
+    reweighted_reco_weights = reweight_array * reco_base_bins[0]
 
-    #existing_states = [ #k2v, kl, kv
-    #    [1  , 1   , 1   ], # 450044
-    #    #[1  , 2   , 1   ], # 450045
-    #    [2  , 1   , 1   ], # 450046
-    #    #[1.5, 1   , 1   ], # 450047
-    #    #[1  , 1   , 0.5 ], # 450048 - !!
-    #    [0.5, 1   , 1   ], # 450049
-    #    #[0  , 1   , 1   ], # 450050
-    #    [0  , 1   , 0.5 ], # 450051 - !!
-    #    [1  , 0   , 1   ], # 450052 - ***
-    #    #[0  , 0   , 1   ], # 450053 - !!
-    #    #[4  , 1   , 1   ], # 450054
-    #    [1  , 10  , 1   ], # 450055 - ***
-    #    #[1  , 1   , 1.5 ]  # 450056 - !!
-    #]
+    base_error2 = ( reweight_array * reco_base_bins[1] )**2
+    truth_error2 = reco_truth_ratio**2 * numpy.array([ (e*m)**2 for e,m in zip(basis_error_list[1:], reweight_vector[1:]) ]).sum(axis=0)
+    base_truth_error2 = 0 #reco_truth_ratio**2 * ( reweight_vector[0] - reweight_array )**2
+    combined_errors = numpy.sqrt( base_error2 + truth_error2 + base_truth_error2 )
 
-    ##basis_states = [ [ sympy.Rational(param) for param in basis ] for basis in existing_states ]
-    ##kappa_matrix = sympy.Matrix([ [ g(*base) for g in full_scan_terms ] for base in basis_states])
-    ##sympy.pprint(kappa_matrix)
-
-    #possible_existing_combinations = itertools.combinations(existing_states,6)
-    #total_possible = 0
-    #for combination in possible_existing_combinations:
-    #    total_possible += get_amplitude_function(str(combination), full_scan_terms, combination)
-    #print()
-    #print(total_possible)
-
-    #existing_basis = [ #k2v, kl, kv
-    #    [1.5  , 1   , 1   ],
-    #    [2    , 1   , 1   ],
-    #    [1    , 2   , 1   ],
-    #    [1    , 1   , 1   ],
-    #    [1    , 0   , 1   ],
-    #    [1    , 10  , 1   ]
-    #]
-    #get_amplitude_function('existing', full_scan_terms, existing_basis)
-
-    current_3D_reco_basis = [ #k2v, kl, kv
-        [1    , 1   , 1   ],
-        [2    , 1   , 1   ],
-        [1.5  , 1   , 1   ],
-        [0    , 1   , 0.5 ],
-        [1    , 0   , 1   ],
-        [1    , 10  , 1   ]
-    ]
-    get_amplitude_function( current_3D_reco_basis, name='current_3D_reco', output='tex')
-
-    kl_basis_states = [
-        ('0  ' , '0 '  , '1  ' ),
-        ('1  ' , '0 '  , '1  ' ),
-        ('0  ' , '1 '  , '1  ' ),
-        ('0  ' , '1 '  , '0.5' ),
-        ('0.5' , '1 '  , '1  ' ),
-        ('1  ' , '1 '  , '0.5' ),
-        ('1  ' , '1 '  , '1  ' ),
-        ('1.5' , '1 '  , '1  ' ),
-        ('2  ' , '1 '  , '1  ' ),
-        ('4  ' , '1 '  , '1  ' ),
-        ('1  ' , '2 '  , '1  ' ),
-        ('1  ' , '10'  , '1  ' ),
-        ('1  ' , '11'  , '1.5' )
-    ]
-    #possible_existing_combinations = itertools.combinations(existing_states,6)
-    #total_possible = 0
-    #for combination in possible_existing_combinations:
-    #    total_possible += get_amplitude_function(str(combination), full_scan_terms, combination)
-    #print()
-    #print(total_possible)
-
-    k2v_basis_states = [
-        ('1'  , '1', '1'  ),
-        ('0'  , '1', '1'  ),
-        ('2'  , '1', '1' )
-    ]
-
-    kl_k2v_basis_states = [
-        ('1'  , '1', '1'  ),
-        ('-1'  , '0', '1' ),
-        ('0'  , '1', '1'  ),
-        ('3/2', '1', '1'  ),
-        ('1'  , '3/2', '1'  ),
-        ('1'  , '-1', '1' )
-    ]
-
-    #get_amplitude_function('all', full_scan_terms, full_basis_states)
-    #print('\n\n\n')
-    #get_amplitude_function('kl', kl_equation_list, kl_basis_states)
-    #print('\n\n\n')
-    #get_amplitude_function('k2v', k2v_equation_list, k2v_basis_states)
-    #get_amplitude_function('kl_k2v', kl_k2v_equation_list, kl_k2v_basis_states)
+    return reweighted_reco_weights, combined_errors
 
 
-if __name__ == '__main__': main()
+
+def reco_reweight(mHH_edges, reweight_vector, coupling_parameters, base_weights, base_errors):
+    multiplier_vector = reweight_vector(*coupling_parameters)[0]
+
+    reweighted_weights = numpy.array([ w*m for w,m in zip(base_weights, multiplier_vector) ])
+    linearly_combined_weights = reweighted_weights.sum(axis=0)
+
+    reweighted_errors2 = numpy.array([ (w*m)**2 for w,m in zip(base_errors, multiplier_vector) ])
+    linearly_combined_errors = numpy.sqrt( reweighted_errors2.sum(axis=0) )
+
+    return linearly_combined_weights, linearly_combined_errors

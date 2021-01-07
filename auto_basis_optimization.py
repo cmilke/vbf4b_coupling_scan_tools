@@ -6,10 +6,10 @@ import uproot
 import inspect
 import itertools
 
-import reweight_utils
+import combination_utils
 
 
-def perform_optimization(amplitude_function, basis_files, coupling_array, base_equations=reweight_utils.full_equation_list):
+def perform_optimization(amplitude_function, basis_files, coupling_array, base_equations=combination_utils.full_equation_list):
     if len(basis_files) < 1: return
 
     hist_key = b'HH_m'
@@ -46,7 +46,7 @@ def perform_optimization(amplitude_function, basis_files, coupling_array, base_e
     weighted_combinations = [ list(zip(*c)) for c in coupling_combinations ]
 
     print('Filtering to valid combinations...')
-    valid_combinations = [ (numpy.array(c),numpy.array(w)) for c,w in weighted_combinations if reweight_utils.is_valid_combination(c, base_equations=base_equations) ]
+    valid_combinations = [ (numpy.array(c),numpy.array(w)) for c,w in weighted_combinations if combination_utils.is_valid_combination(c, base_equations=base_equations) ]
     print('Sorting...')
     ordered_combinations = [ ( weights.max(axis=0).sum(), couplings ) for couplings, weights in valid_combinations ]
     ordered_combinations.sort(reverse=True,key=lambda c: c[0])
@@ -61,8 +61,8 @@ def perform_optimization(amplitude_function, basis_files, coupling_array, base_e
     for index, (val, arr) in enumerate([ordered_combinations[12]]):
         print(val)
         print(arr)
-        reweight_utils.get_amplitude_function(final_couplings, base_equations=base_equations, output='tex', name=f'recoR{index}')
-        reweight_utils.plot_all_couplings(f'kl_R{index}_', amplitude_function, basis_files, arr[::-1], plotdir='auto_chosen/')
+        combination_utils.get_amplitude_function(final_couplings, base_equations=base_equations, output='tex', name=f'recoR{index}')
+        combination_utils.plot_all_couplings(f'kl_R{index}_', amplitude_function, basis_files, arr[::-1], plotdir='auto_chosen/')
         print()
     #print()
     #print(final_couplings)
@@ -144,10 +144,10 @@ def main():
         [1   , 11  , 1.5 ]
     ]
     coupling_array = numpy.array(kl_basis_states)
-    base_equations=reweight_utils.kl_scan_terms
+    base_equations=combination_utils.kl_scan_terms
 
     # Get amplitude function and perform reweighting
-    amplitude_function = reweight_utils.get_amplitude_function(basis_parameters,
+    amplitude_function = combination_utils.get_amplitude_function(basis_parameters,
             base_equations = base_equations)
     if amplitude_function == None:
         print('Encountered invalid basis state. Aborting')
