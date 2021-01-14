@@ -20,23 +20,27 @@ def extract_lhe_events(rootfile, key_list):
 def retrieve_lhe_weights(lhe_events, kinematic_variable, bin_edges):
     event_weights = lhe_events['weight'].values
     event_kinematics = lhe_events[kinematic_variable].values
-    reco_weights = numpy.histogram(event_kinematics, weights=event_weights, bins=bin_edges)[0]
-    reco_errors = numpy.zeros( len(reco_weights) )
+    weights = numpy.histogram(event_kinematics, weights=event_weights, bins=bin_edges)[0]
+    errors = numpy.zeros( len(weights) )
     event_bins = numpy.digitize(event_kinematics,bin_edges)
-    for i in range(len(reco_errors)):
+    for i in range(len(errors)):
         binned_weights = event_weights[ event_bins == i ]
         error2_array = binned_weights**2
         error = math.sqrt( error2_array.sum() )
-        reco_errors[i] = error
-    return reco_weights, reco_errors
+        errors[i] = error
+    return weights, errors
 
 
 
-def extract_lhe_truth_data(file_list, mHH_edges):
+def extract_lhe_truth_data(file_list, mHH_edges, normalize=False):
     weight_list, error_list = [], []
     for f in file_list:
         events = extract_lhe_events(f,['HH_m'])
         weights, errors = retrieve_lhe_weights(events, 'HH_m', mHH_edges)
+        if normalize:
+            norm = weights.sum()
+            weights /= norm
+            errors /= norm
         weight_list.append(weights)
         error_list.append(errors)
     return weight_list, error_list
@@ -93,7 +97,7 @@ def retrieve_reco_weights(mHH_edges, reco_events):
         error = math.sqrt( error2_array.sum() )
         reco_errors[i] = error
 
-    return reco_weights, reco_errors
+    return [reco_weights, reco_errors]
 
 
 
@@ -105,6 +109,7 @@ def retrieve_reco_weights(mHH_edges, reco_events):
 def obtain_linear_combination(coupling_parameters, combination_function, coefficient_function, basis_error_list):
         linearly_combined_weights = combination_function(coupling_parameters)
         vector_coefficients = coefficient_function(coupling_parameters)
+        print(vector_coefficients)
         error_term_list = [ (c*err)**2 for c, err in zip(vector_coefficients, basis_error_list) ]
         linearly_combined_errors = numpy.sqrt( sum(error_term_list) )
         return linearly_combined_weights, linearly_combined_errors
@@ -142,14 +147,17 @@ def truth_truth_reweight( basis_parameters, combination_components, coupling_par
 
 
 
-def truth_reweight( basis_parameters, combination_components, coupling_parameters, reco_base_bins, mHH_edges):
+def truth_reweight( basis_parameters, combination_components, coupling_parameters, reco_base_bins, mHH_edges, scan_terms=_scan_terms, normalize=False):
     combination_function, basis_weight_list, basis_error_list = combination_components
     basis_list = [ [eval(n) for n in b ] for b in basis_parameters ]
 
     linear_combination = combination_function(coupling_parameters)
-    reweight_vector = combination_utils.get_amplitude_function(basis_parameters, base_equations=_scan_terms, as_scalar=False)(*coupling_parameters)[0]
+    reweight_vector = combination_utils.get_amplitude_function(basis_parameters, base_equations=scan_terms, as_scalar=False)(*coupling_parameters)[0]
 
     truth_base_weights = basis_weight_list[0].copy()
+    if normalize:
+        linear_combination /= linear_combination.sum()
+        truth_base_weights /= truth_base_weights.sum()
     truth_base_weights[ truth_base_weights == 0. ] = float('inf') # Just to avoid Nan issues
     reweight_array = linear_combination / truth_base_weights
     reco_truth_ratio = reco_base_bins[0] / truth_base_weights
@@ -160,6 +168,7 @@ def truth_reweight( basis_parameters, combination_components, coupling_parameter
     truth_error2 = reco_truth_ratio**2 * numpy.array([ (e*m)**2 for e,m in zip(basis_error_list[1:], reweight_vector[1:]) ]).sum(axis=0)
     base_truth_error2 = 0 #reco_truth_ratio**2 * ( reweight_vector[0] - reweight_array )**2
     combined_errors = numpy.sqrt( base_error2 + truth_error2 + base_truth_error2 )
+    combined_errors = numpy.zeros( len(reweighted_reco_weights) )
 
     return reweighted_reco_weights, combined_errors
 

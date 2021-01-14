@@ -12,6 +12,7 @@ import reweight_utils
 
 _scan_terms = combination_utils.full_scan_terms
 #_scan_terms = combination_utils.k2v_scan_terms
+#_scan_terms = combination_utils.kl_scan_terms
 
 
 def plot_histogram(hist_name, hist_title, edge_list, coupling_parameters,
@@ -170,21 +171,22 @@ def plot_dual_histogram(hist_name, hist_title, edge_list, coupling_parameters,
 
 
 
-
-
 def validate_truth_combinations(basis_parameters, basis_files, verification_parameters, verification_files):
-    basis_weight_list, basis_error_list, edge_list = reweight_utils.extract_truth_data(basis_files)
+    edge_list = numpy.linspace(0, 6000, num=1200)
+    basis_weight_list, basis_error_list = reweight_utils.extract_lhe_truth_data(basis_files, edge_list)
+    #basis_weight_list, basis_error_list, edge_list = reweight_utils.extract_truth_data(basis_files)
     amplitude_function = combination_utils.get_amplitude_function(basis_parameters, base_equations=_scan_terms)
     vector_function = combination_utils.get_amplitude_function(basis_parameters, base_equations=_scan_terms, as_scalar=False)
     combination_function = lambda params: amplitude_function(*params, *basis_weight_list)
     coefficient_function = lambda params: vector_function(*params)[0]
 
-    verification_weight_list, verification_error_list = reweight_utils.extract_truth_data(verification_files)[:2]
+    verification_weight_list, verification_error_list = reweight_utils.extract_lhe_truth_data(verification_files, edge_list)
     for index, coupling_parameters in enumerate(verification_parameters):
         linearly_combined_weights, linearly_combined_errors = reweight_utils.obtain_linear_combination(coupling_parameters, combination_function, coefficient_function, basis_error_list)
         plot_histogram('truth_mHH', 'Full-Truth Linear Combination:\n$m_{HH}$', edge_list, coupling_parameters,
             linearly_combined_weights, linearly_combined_errors,
-            verification_weight_list[index], verification_error_list[index])
+            verification_weight_list[index], verification_error_list[index],
+            range_specs=numpy.digitize([200,1000], edge_list) )
 
 
 
@@ -234,7 +236,10 @@ def validate_truth_reweighting_method(basis_parameters, basis_files, verificatio
 
 def validate_reweighting_method(basis_parameters, basis_files, verification_parameters, verification_files):
     amplitude_function = combination_utils.get_amplitude_function(basis_parameters, base_equations=_scan_terms)
-    basis_weight_list, basis_error_list, mHH_edges = reweight_utils.extract_truth_data(basis_files, hist_key=hist_key)
+    #basis_weight_list, basis_error_list, mHH_edges = reweight_utils.extract_truth_data(basis_files, hist_key=hist_key)
+    mHH_edges = numpy.linspace(0, 6000, num=600)
+    basis_weight_list, basis_error_list = reweight_utils.extract_lhe_truth_data(basis_files, mHH_edges)
+
     combination_function = lambda params: amplitude_function(*params, *basis_weight_list)
     combination_components = combination_function, basis_weight_list, basis_error_list
 
@@ -242,12 +247,24 @@ def validate_reweighting_method(basis_parameters, basis_files, verification_para
     reco_base_events = verification_events_list[0] # 0th couplings for basis and verification must be the same
 
     reco_base_bins = reweight_utils.retrieve_reco_weights(mHH_edges, reco_base_events)
+    normalize = False
+    if normalize:
+        reco_normalization = reco_base_bins[0].sum()
+        reco_base_bins[0] /= reco_normalization
+        reco_base_bins[1] /= reco_normalization
     for index, coupling_parameters in enumerate(verification_parameters):
         verification_weights, verification_errors = reweight_utils.retrieve_reco_weights(mHH_edges, verification_events_list[index])
-        combined_weights, combined_errors = reweight_utils.truth_reweight( basis_parameters, combination_components, coupling_parameters, reco_base_bins, mHH_edges)
+
+        if normalize:
+            verification_normalization = verification_weights.sum()
+            verification_weights /= verification_normalization
+            verification_errors /= verification_normalization
+
+        combined_weights, combined_errors = reweight_utils.truth_reweight( basis_parameters, combination_components, coupling_parameters, reco_base_bins, mHH_edges, scan_terms=_scan_terms, normalize=normalize)
         plot_histogram('rwgt_mHH', 'Truth-Reweighted NNT:\n$m_{HH}$', mHH_edges, coupling_parameters,
                  combined_weights, combined_errors,
-                 verification_weights, verification_errors
+                 verification_weights, verification_errors,
+                 range_specs=numpy.digitize([200,1000], mHH_edges)
         )
 
 

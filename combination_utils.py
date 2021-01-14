@@ -264,7 +264,7 @@ def main():
         [1   ,   10 ,  1  ],
         [1   ,   1  ,  1.5]
     ]
-    get_amplitude_function( truth_basis, name='truth_basis', output='tex')
+    #get_amplitude_function( truth_basis, name='truth_basis', output='tex')
 
     #kl_basis_states = [
     #    ('0  ' , '0 '  , '1  ' ),
@@ -287,6 +287,16 @@ def main():
     #    total_possible += get_amplitude_function(str(combination), full_scan_terms, combination)
     #print()
     #print(total_possible)
+
+    kl_basis = [
+        [1   ,   0  ,  1  ],
+        [1   ,   1  ,  1  ],
+        [1   ,   20 ,  1  ],
+    ]
+    get_amplitude_function(kl_basis, base_equations=kl_scan_terms, output='tex', name='kl_test' )
+    vector_function = get_amplitude_function(kl_basis, base_equations=kl_scan_terms, as_scalar=False)
+    vector = vector_function(1,2,1)[0]
+    print(vector)
 
     k2v_basis_states = [
         ('1'  , '1', '1'  ),
