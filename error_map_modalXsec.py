@@ -31,6 +31,7 @@ def generate_error_maps(basis_parameters, basis_files):
     kv_val = 1.0
     k2v_val_range = numpy.linspace(-2,4,51)
     kl_val_range = numpy.linspace(-15,15,51)
+    distribution_sum_grid = numpy.zeros( (len(k2v_val_range),len(kl_val_range)) )
     distribution_mode_grid = numpy.zeros( (len(k2v_val_range),len(kl_val_range)) )
     relative_error_grid = numpy.zeros( (len(k2v_val_range),len(kl_val_range)) )
     averaging_window = int( 0.1*(len(var_edges)-1) )
@@ -40,7 +41,10 @@ def generate_error_maps(basis_parameters, basis_files):
             combined_weights, combined_errors = reweight_utils.reco_reweight(reweight_vector, coupling_parameters, base_weights, base_errors)
             rolling_average_weights = numpy.convolve( combined_weights, numpy.ones(averaging_window)/averaging_window, mode='valid' )
             distribution_mode_index = numpy.argmax(rolling_average_weights) + int(averaging_window/2) + 1
-            distribution_mode_grid[k2v_i][kl_j] = numpy.average(var_edges[distribution_mode_index])
+            distribution_mode_grid[k2v_i][kl_j] = var_edges[distribution_mode_index]
+            distribution_sum_grid[k2v_i][kl_j] = numpy.sum(combined_weights)
+
+            # Calculate relative error, with safety checks to account for empty bins
             combined_weights[ combined_weights == 0 ] = float('inf')
             relative_error_list = abs(combined_errors / combined_weights)
             relative_error_list[ combined_weights == float('inf') ] = 100
@@ -49,7 +53,7 @@ def generate_error_maps(basis_parameters, basis_files):
             error_slice = slice(error_start_index,error_stop_index)
             relative_error_grid[k2v_i][kl_j] = numpy.average(relative_error_list[error_slice])
 
-    fig, ax_array = plt.subplots(ncols=2, sharex=True, sharey=True)
+    fig, ax_array = plt.subplots(nrows=2, ncols=2, sharex=True, sharey=True)
         #gridspec_kw={'height_ratios':grid_ratios,'width_ratios':grid_ratios})
 
     ranges = k2v_val_range[0], k2v_val_range[-1], kl_val_range[0], kl_val_range[-1]
@@ -61,37 +65,50 @@ def generate_error_maps(basis_parameters, basis_files):
         plottable_couplings[index][0].append(k2v)
         plottable_couplings[index][1].append(kl)
 
-    #im0 = ax_array[0].imshow(distribution_mode_grid.transpose(), vmin=250, vmax=2000, extent=ranges, origin='lower')
-    im0 = ax_array[0].imshow(distribution_mode_grid.transpose(), extent=ranges, origin='lower')
-    ax_array[0].set_aspect('auto','box')
-    ax_array[0].set_xticks(ticks = range(-2,5))
-    ax_array[0].set_yticks(ticks = list(range(-14,21,5)))
-    ax_array[0].grid()
-    for (x,y,m) in plottable_couplings: ax_array[0].scatter(x,y, marker=m, color='red', s=9)
+    ax_array[0][1].set_axis_off()
 
-    im1 = ax_array[1].imshow(relative_error_grid.transpose(), vmin=0, vmax=1, extent=ranges, origin='lower', cmap='plasma')
-    ax_array[1].set_aspect('auto','box')
-    ax_array[1].grid()
-    for (x,y,m) in plottable_couplings: ax_array[1].scatter(x,y, marker=m, color='cyan', s=9)
+    im_sum = ax_array[0][0].imshow(distribution_sum_grid.transpose(), extent=ranges, origin='lower', cmap='inferno', norm=matplotlib.colors.LogNorm(0.01,3))
+    ax_array[0][0].set_aspect('auto','box')
+    ax_array[0][0].set_title('X-Sec at Coupling Point', fontsize='small' )
+    ax_array[0][0].grid()
+    ax_array[0][0].set_xticks(ticks = range(-2,5))
+    ax_array[0][0].set_yticks(ticks = list(range(-14,21,5)))
+
+    im_mode = ax_array[1][0].imshow(distribution_mode_grid.transpose(), extent=ranges, origin='lower', cmap='viridis')
+    ax_array[1][0].set_aspect('auto','box')
+    ax_array[1][0].set_title('Location of Distribution Mode', fontsize='small' )
+    ax_array[1][0].grid()
+    #for (x,y,m) in plottable_couplings: ax_array[1][0].scatter(x,y, marker=m, color='red', s=9)
+
+    im_err = ax_array[1][1].imshow(relative_error_grid.transpose(), vmin=0, vmax=1, extent=ranges, origin='lower', cmap='plasma')
+    ax_array[1][1].set_aspect('auto','box')
+    ax_array[1][1].set_title('Relative Error at Distribution Mode', fontsize='small' )
+    ax_array[1][1].grid()
+    for (x,y,m) in plottable_couplings: ax_array[1][1].scatter(x,y, marker=m, color='cyan', s=9)
 
     # Create heatmap references
-    fig.subplots_adjust(top=0.70)
+    #fig.subplots_adjust(top=0.70)
 
-    cbar_mode_ax = fig.add_axes([0.125, 0.8, 0.35, 0.05])
-    fig.colorbar(im0, cax=cbar_mode_ax, orientation='horizontal', label='X-Sec Distribution Mode (GeV)')
+    #cbar_sum_ax = fig.add_axes([0.55, 0.85, 0.35, 0.03])
+    cbar_sum_ax = fig.add_axes([0.55, 0.52, 0.02, 0.35])
+    fig.colorbar(im_sum, cax=cbar_sum_ax, label='$\sigma$ (fb$^-1$)')
 
-    cbar_error_ax = fig.add_axes([0.55, 0.8, 0.35, 0.05])
-    fig.colorbar(im1, cax=cbar_error_ax, orientation='horizontal', label='Average Relative Error at Mode')
+    #cbar_mode_ax = fig.add_axes([0.55, 0.7, 0.35, 0.03])
+    cbar_mode_ax = fig.add_axes([0.70, 0.52, 0.02, 0.35])
+    fig.colorbar(im_mode, cax=cbar_mode_ax, label='Distribution Mode (GeV)')
+
+    #cbar_error_ax = fig.add_axes([0.55, 0.6, 0.35, 0.03])
+    cbar_error_ax = fig.add_axes([0.85, 0.52, 0.02, 0.35])
+    fig.colorbar(im_err, cax=cbar_error_ax, label='Average Relative Error')
 
     fig.text(0.5, 0.04, '$\kappa_{2V}$', ha='center')
     fig.text(0.04, 0.5, '$\kappa_{\lambda}$', va='center', rotation='vertical')
-    fig.suptitle('Linearly Combined $M_{HH}$ Distribution Modes\nand Associated Relative Error', fontsize=10, fontweight='bold')
+    fig.suptitle('Linearly Combined $M_{HH}$ Cross-sections\nWith Distribution Modes and Associated Relative Error', fontsize=10, fontweight='bold')
     #plt.show()
     dpi = 500
-    plt.savefig('plots/error_maps/basic_modal.png',dpi=dpi)
+    plt.savefig('plots/error_maps/basic_modal_w-xsec.png',dpi=dpi)
     #output.savefig()
     #plt.close()
-
 
 
 
