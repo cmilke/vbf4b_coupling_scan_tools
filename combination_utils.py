@@ -293,16 +293,17 @@ def main():
         [1   ,   1  ,  1  ],
         [1   ,   20 ,  1  ],
     ]
-    get_amplitude_function(kl_basis, base_equations=kl_scan_terms, output='tex', name='kl_test' )
-    vector_function = get_amplitude_function(kl_basis, base_equations=kl_scan_terms, as_scalar=False)
-    vector = vector_function(1,2,1)[0]
-    print(vector)
+    #get_amplitude_function(kl_basis, base_equations=kl_scan_terms, output='tex', name='kl_test' )
+    #vector_function = get_amplitude_function(kl_basis, base_equations=kl_scan_terms, as_scalar=False)
+    #vector = vector_function(1,2,1)[0]
+    #print(vector)
 
     k2v_basis_states = [
         ('1'  , '1', '1'  ),
         ('0'  , '1', '1'  ),
         ('2'  , '1', '1' )
     ]
+    get_amplitude_function(k2v_basis_states, base_equations=k2v_scan_terms, output='tex', name='alle_test' )
 
     kl_k2v_basis_states = [
         ('1'  , '1', '1'  ),

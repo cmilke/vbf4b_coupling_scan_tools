@@ -56,14 +56,22 @@ def plot_histogram(hist_name, hist_title, edge_list, coupling_parameters,
     safe_error[ safe_error == 0 ] = float('inf')
     safe_combination = linearly_combined_weights.copy()
     safe_combination[ safe_combination == 0 ] = float('inf')
-    #rcounts, rbins, rpoints = ax_ratio.errorbar( xpositions, (linearly_combined_weights-verification_weights)/safe_error,
-    #    yerr=linearly_combined_errors/safe_error, label='MC Statistical Error check',
-    #    marker='+', markersize=2, capsize=2, color=generated_color, linestyle='none', linewidth=1, zorder=3)
-    rcounts, rbins, rpoints = ax_ratio.errorbar( xpositions, verification_weights/safe_combination,
-        yerr=verification_errors/safe_combination, label='MC Statistical Error check',
+    rcounts, rbins, rpoints = ax_ratio.errorbar( xpositions, (linearly_combined_weights-verification_weights)/safe_error,
+        yerr=linearly_combined_errors/safe_error, label='MC Statistical Error check',
         marker='+', markersize=2, capsize=2, color=generated_color, linestyle='none', linewidth=1, zorder=3)
-    
-    zero_line = ax_ratio.hlines(1,xmin=edge_list[0],xmax=edge_list[-1],colors='black',zorder=2)
+    ax_ratio.set(ylabel=r'$\frac{lin. comb. - gen.}{stat. error}$', xlabel=xlabel)
+    ax_ratio.set_ylim([-3,3])
+    #ax_ratio.set_yticks(ticks=range(-3,4))
+    ax_ratio.set_yticks(ticks=[-2,0,2])
+    zero_line = ax_ratio.hlines(0,xmin=edge_list[0],xmax=edge_list[-1],colors='black',zorder=2)
+
+    #rcounts, rbins, rpoints = ax_ratio.errorbar( xpositions, linearly_combined_weights/verification_weights,
+    #    yerr=linearly_combined_errors/verification_weights, label='MC Statistical Error check',
+    #    marker='+', markersize=2, capsize=2, color=generated_color, linestyle='none', linewidth=1, zorder=3)
+    #ax_ratio.set(ylabel=r'$\frac{generated}{lin. combination}$', xlabel=xlabel)
+    #ax_ratio.set_ylim([0.5,1.5])
+    #ax_ratio.set_yticks(ticks=[0.5,1,1.5])
+    #zero_line = ax_ratio.hlines(1,xmin=edge_list[0],xmax=edge_list[-1],colors='black',zorder=2)
 
     kappa_labels = [ str(param) for param in coupling_parameters ]
     title  = hist_title+' for '
@@ -73,10 +81,6 @@ def plot_histogram(hist_name, hist_title, edge_list, coupling_parameters,
     fig.suptitle(title)
 
     ax_main.set(ylabel='Bin Weight')
-    ax_ratio.set_ylim([0.5,1.5])
-    ax_ratio.set_yticks(ticks=[0.5,1,1.5])
-    #ax_ratio.set(ylabel=r'$\frac{lin. comb. - gen.}{stat. error}$', xlabel=xlabel)
-    ax_ratio.set(ylabel=r'$\frac{generated}{lin. combination}$', xlabel=xlabel)
     ax_main.legend(prop={'size':7})
     ax_main.grid()
     ax_ratio.grid()
@@ -84,6 +88,7 @@ def plot_histogram(hist_name, hist_title, edge_list, coupling_parameters,
     dpi=500
     kappa_string_list = [ label.replace('.','p') for label in kappa_labels ]
     kappa_string = 'cvv'+kappa_string_list[0]+'cl'+kappa_string_list[1]+'cv'+kappa_string_list[2]
+    fig.tight_layout()
     fig.savefig('plots/validation/'+hist_name+'_'+kappa_string+'.png', dpi=dpi)
     plt.close()
 
@@ -172,7 +177,7 @@ def plot_dual_histogram(hist_name, hist_title, edge_list, coupling_parameters,
 
 
 def validate_truth_combinations(basis_parameters, basis_files, verification_parameters, verification_files):
-    edge_list = numpy.linspace(0, 6000, num=1200)
+    edge_list = numpy.arange(0, 2050, 50)
     basis_weight_list, basis_error_list = reweight_utils.extract_lhe_truth_data(basis_files, edge_list)
     #basis_weight_list, basis_error_list, edge_list = reweight_utils.extract_truth_data(basis_files)
     amplitude_function = combination_utils.get_amplitude_function(basis_parameters, base_equations=_scan_terms)
@@ -182,11 +187,11 @@ def validate_truth_combinations(basis_parameters, basis_files, verification_para
 
     verification_weight_list, verification_error_list = reweight_utils.extract_lhe_truth_data(verification_files, edge_list)
     for index, coupling_parameters in enumerate(verification_parameters):
-        linearly_combined_weights, linearly_combined_errors = reweight_utils.obtain_linear_combination(coupling_parameters, combination_function, coefficient_function, basis_error_list)
-        plot_histogram('truth_mHH', 'Full-Truth Linear Combination:\n$m_{HH}$', edge_list, coupling_parameters,
-            linearly_combined_weights, linearly_combined_errors,
-            verification_weight_list[index], verification_error_list[index],
-            range_specs=numpy.digitize([200,1000], edge_list) )
+        combined_weights, combined_errors = reweight_utils.reco_reweight(vector_function, coupling_parameters, basis_weight_list, basis_error_list)
+
+        plot_histogram('truth_comb', 'Full-Truth Linear Combination:\n$m_{HH}$', edge_list, coupling_parameters,
+            combined_weights, combined_errors,
+            verification_weight_list[index], verification_error_list[index])
 
 
 
@@ -197,11 +202,11 @@ def validate_truth_reweighting_method(basis_parameters, basis_files, verificatio
 
     kinematic_variables = [
         ['HH_m', '$m_{HH}$', (0,6000,100, (0,2000)), 'GeV' ],
-        ['HH_pt', '$p_{T,HH}$', (0,1000,50, (0,1000)), 'GeV'],
-        ['HH_eta', r'$\Delta\eta_{HH}$', (-8,8,32, (-8,8)), ''],
-        ['jj_M', '$m_{jj}$', (0,10000,100, (0,6000)), 'GeV' ],
-        ['jj_pT', '$p_{T,jj}$', (0,1000,50, (0,1000)), 'GeV'],
-        ['jj_eta', r'$\Delta\eta_{jj}$', (-8,8,32, (-8,8)), '']
+        #['HH_pt', '$p_{T,HH}$', (0,1000,50, (0,1000)), 'GeV'],
+        #['HH_eta', r'$\Delta\eta_{HH}$', (-8,8,32, (-8,8)), ''],
+        #['jj_M', '$m_{jj}$', (0,10000,100, (0,6000)), 'GeV' ],
+        #['jj_pT', '$p_{T,jj}$', (0,1000,50, (0,1000)), 'GeV'],
+        #['jj_eta', r'$\Delta\eta_{jj}$', (-8,8,32, (-8,8)), '']
     ]
     kinematic_keys = list(zip(*kinematic_variables))[0]
     verification_events_list = [ reweight_utils.extract_lhe_events(v,kinematic_keys) for v in verification_files ]
@@ -213,25 +218,26 @@ def validate_truth_reweighting_method(basis_parameters, basis_files, verificatio
         for index, coupling_parameters in enumerate(verification_parameters):
             verification_weights, verification_errors = reweight_utils.retrieve_lhe_weights(verification_events_list[index], key, bin_edges)
             reweighted_sm_weights, reweighted_sm_errors = reweight_utils.truth_truth_reweight( basis_parameters, combination_components, coupling_parameters, 
-                    verification_events_list[0], base_distro, key, bin_edges)
+                    verification_events_list[0], base_distro, key, bin_edges, base_equations=_scan_terms)
 
-            plot_histogram('truth_rwgt_'+str(key), 'Truth-Reweighted SM LHE:\n'+title, bin_edges, coupling_parameters,
-                     reweighted_sm_weights, reweighted_sm_errors,
-                     verification_weights, verification_errors,
-                     range_specs=numpy.digitize(bin_specs[3], bin_edges),
-                     xlabel='Truth '+title+( ' ('+units+')' if units != '' else '' ),
-                     generated_label='Reweighted SM',
-                     generated_color='orange'
-            )
-
-            #linearly_combined_weights = combination_components2[0](coupling_parameters)
-            #linearly_combined_errors = amplitude_function(*coupling_parameters,*combination_components2[2])
-            #plot_dual_histogram('truth_rwgt_DUAL_'+str(key), 'Truth-Reweighted SM LHE:\n'+title, bin_edges, coupling_parameters,
-            #         linearly_combined_weights, linearly_combined_errors,
+            #plot_histogram('truth_rwgt_'+str(key), 'Truth-Reweighted SM LHE:\n'+title, bin_edges, coupling_parameters,
             #         reweighted_sm_weights, reweighted_sm_errors,
             #         verification_weights, verification_errors,
             #         range_specs=numpy.digitize(bin_specs[3], bin_edges),
+            #         xlabel='Truth '+title+( ' ('+units+')' if units != '' else '' ),
+            #         generated_label='Reweighted SM',
+            #         generated_color='orange'
             #)
+
+            # Do NOT use this if plotting anything other than HH_m
+            linearly_combined_weights = combination_components2[0](coupling_parameters)
+            linearly_combined_errors = amplitude_function(*coupling_parameters,*combination_components2[2])
+            plot_dual_histogram('truth_rwgt_DUAL_'+str(key), 'Truth-Reweighted SM LHE:\n'+title, bin_edges, coupling_parameters,
+                     linearly_combined_weights, linearly_combined_errors,
+                     reweighted_sm_weights, reweighted_sm_errors,
+                     verification_weights, verification_errors,
+                     range_specs=numpy.digitize(bin_specs[3], bin_edges),
+            )
 
 
 def validate_reweighting_method(basis_parameters, basis_files, verification_parameters, verification_files):
@@ -270,18 +276,18 @@ def validate_reweighting_method(basis_parameters, basis_files, verification_para
 
 def validate_reco_method(basis_parameters, basis_files, verification_parameters, verification_files):
     reweight_vector = combination_utils.get_amplitude_function(basis_parameters, as_scalar=False, base_equations=_scan_terms)
-    mHH_edges = numpy.arange(0, 2050, 50)
+    var_edges = numpy.arange(0, 2050, 50)
 
-    verification_events_list = [ reweight_utils.extract_ntuple_events(v) for v in verification_files ]
-    base_events_list = [ reweight_utils.extract_ntuple_events(b) for b in basis_files ]
-    base_histograms = [ reweight_utils.retrieve_reco_weights(mHH_edges, base_events) for base_events in base_events_list ]
+    verification_events_list = [ reweight_utils.extract_ntuple_events(v,key='m_hh',filter_vbf=False) for v in verification_files ]
+    base_events_list = [ reweight_utils.extract_ntuple_events(b,key='m_hh',filter_vbf=False) for b in basis_files ]
+    base_histograms = [ reweight_utils.retrieve_reco_weights(var_edges, base_events) for base_events in base_events_list ]
     base_weights, base_errors = numpy.array(list(zip(*base_histograms)))
 
     for verification_events, coupling_parameters in zip(verification_events_list, verification_parameters):
-        verification_weights, verification_errors = reweight_utils.retrieve_reco_weights(mHH_edges, verification_events)
-        combined_weights, combined_errors = reweight_utils.reco_reweight(mHH_edges, reweight_vector, coupling_parameters, base_weights, base_errors)
+        verification_weights, verification_errors = reweight_utils.retrieve_reco_weights(var_edges, verification_events)
+        combined_weights, combined_errors = reweight_utils.reco_reweight(reweight_vector, coupling_parameters, base_weights, base_errors)
 
-        plot_histogram('reco_mHH', 'NNT-Based Linear Combination:\n$m_{HH}$', mHH_edges, coupling_parameters,
+        plot_histogram('reco_mHH', 'NNT-Based Linear Combination:\n$m_{HH}$', var_edges, coupling_parameters,
                  combined_weights, combined_errors,
                  verification_weights, verification_errors,
                  xlabel='Reconstructed $m_{HH}$ (GeV)'
