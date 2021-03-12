@@ -21,16 +21,23 @@ def nice_array(arr):
 
 
 def generate_error_maps(basis_parameters, basis_files):
+    combination_function = combination_utils.get_amplitude_function(basis_parameters, base_equations=_scan_terms)
     reweight_vector = combination_utils.get_amplitude_function(basis_parameters, as_scalar=False, base_equations=_scan_terms)
-    var_edges = numpy.linspace(250, 2000, 101)
+    var_edges = numpy.linspace(250, 2000, 51)
 
     base_events_list = [ reweight_utils.extract_ntuple_events(b,key='m_hh',filter_vbf=False) for b in basis_files ]
     base_histograms = [ reweight_utils.retrieve_reco_weights(var_edges, base_events) for base_events in base_events_list ]
     base_weights, base_errors = numpy.array(list(zip(*base_histograms)))
 
+    base_cutflows = [ reweight_utils.get_cutflow_values(base_file) for base_file in basis_files ]
+    base_initial_weights = [ cutflow['Initial'] for cutflow in base_cutflows ]
+    base_signal_weights = [ cutflow['Signal'] for cutflow in base_cutflows ]
+    initial_weight_function = lambda params: combination_function(*params, *base_initial_weights)
+    signal_weight_function = lambda params: combination_function(*params, *base_signal_weights)
+
     kv_val = 1.0
-    k2v_val_range = numpy.linspace(-2,4,51)
-    kl_val_range = numpy.linspace(-15,15,51)
+    k2v_val_range = numpy.linspace(-2,4,101)
+    kl_val_range = numpy.linspace(-15,15,101)
     distribution_mode_grid = numpy.zeros( (len(k2v_val_range),len(kl_val_range)) )
     relative_error_grid = numpy.zeros( (len(k2v_val_range),len(kl_val_range)) )
     averaging_window = int( 0.1*(len(var_edges)-1) )
@@ -48,6 +55,10 @@ def generate_error_maps(basis_parameters, basis_files):
             error_stop_index  = distribution_mode_index+int(averaging_window/2)+1
             error_slice = slice(error_start_index,error_stop_index)
             relative_error_grid[k2v_i][kl_j] = numpy.average(relative_error_list[error_slice])
+
+            combined_initial_weight = initial_weight_function(coupling_parameters)
+            combined_signal_weight = signal_weight_function(coupling_parameters)
+
 
     fig, ax_array = plt.subplots(ncols=2, sharex=True, sharey=True)
         #gridspec_kw={'height_ratios':grid_ratios,'width_ratios':grid_ratios})
@@ -67,12 +78,13 @@ def generate_error_maps(basis_parameters, basis_files):
     ax_array[0].set_xticks(ticks = range(-2,5))
     ax_array[0].set_yticks(ticks = list(range(-14,21,5)))
     ax_array[0].grid()
-    for (x,y,m) in plottable_couplings: ax_array[0].scatter(x,y, marker=m, color='red', s=9)
+    for (x,y,m) in plottable_couplings: ax_array[0].scatter(x,y, marker=m, color='red', s=13)
 
     im1 = ax_array[1].imshow(relative_error_grid.transpose(), vmin=0, vmax=1, extent=ranges, origin='lower', cmap='plasma')
+    #im1 = ax_array[1].imshow(relative_error_grid.transpose(), extent=ranges, origin='lower', cmap='plasma', norm=matplotlib.colors.LogNorm(0.01,10))
     ax_array[1].set_aspect('auto','box')
     ax_array[1].grid()
-    for (x,y,m) in plottable_couplings: ax_array[1].scatter(x,y, marker=m, color='cyan', s=9)
+    for (x,y,m) in plottable_couplings: ax_array[1].scatter(x,y, marker=m, color='cyan', s=13)
 
     # Create heatmap references
     fig.subplots_adjust(top=0.70)

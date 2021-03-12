@@ -202,6 +202,14 @@ def retrieve_reco_weights(var_edges, reco_events):
 
 
 
+def get_cutflow_values(filename, hist_name='FourTagCutflow'):
+    directory = uproot.open(filename)
+    cutflow_hist = directory[hist_name]
+    labeled_values = { k:v for k,v in zip(cutflow_hist.xlabels, cutflow_hist.values) }
+    return labeled_values
+
+
+
 ##########################################
 ### Reweighting/combination Techniques ###
 ##########################################
