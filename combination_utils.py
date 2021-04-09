@@ -1,6 +1,10 @@
 import sympy
 import numpy
 import itertools
+import os
+import matplotlib
+matplotlib.use('Agg')
+from matplotlib import pyplot as plt
 
 _k2v = sympy.Symbol('\kappa_{2V}')
 _kl = sympy.Symbol('\kappa_{\lambda}')
@@ -45,7 +49,7 @@ def is_valid_combination(basis_parameters, base_equations=full_scan_terms):
 
 
 
-def get_amplitude_function( basis_parameters, as_scalar=True, base_equations=full_scan_terms, name='unnamed', output=None):
+def get_amplitude_function( basis_parameters, as_scalar=True, base_equations=full_scan_terms, name='unnamed', output=None, preloaded_amplitudes=None):
     basis_states = [ [ sympy.Rational(param) for param in basis ] for basis in basis_parameters ]
 
     combination_matrix = sympy.Matrix([ [ g(*base) for g in base_equations ] for base in basis_states])
@@ -54,12 +58,26 @@ def get_amplitude_function( basis_parameters, as_scalar=True, base_equations=ful
 
     inversion = combination_matrix.inv()
     term_vector = sympy.Matrix([ [g(_k2v,_kl,_kv)] for g in base_equations ])
-    amplitudes = sympy.Matrix([ sympy.Symbol(f'A{n}') for n in range(len(base_equations)) ])
+    if type(preloaded_amplitudes) == type(None):
+        amplitudes = sympy.Matrix([ sympy.Symbol(f'A{n}') for n in range(len(base_equations)) ])
+    else:
+        amplitudes = sympy.Matrix(preloaded_amplitudes)
 
     if as_scalar:
         # FYI, numpy outputs a 1x1 matrix here, so I use the [0] to get just the equation
         final_amplitude = (term_vector.T*inversion*amplitudes)[0]
-        if output == 'ascii': sympy.pprint(final_amplitude)
+        if output == 'ascii':
+            avec = inversion*amplitudes
+            sympy.pprint(avec)
+            print()
+            print()
+            sympy.pprint(avec.T)
+            print()
+            print()
+            sympy.pprint(avec*avec.T)
+            #sympy.pprint(amplitudes.T*inversion)
+            #sympy.pprint(sympy.simplify( (inversion*amplitudes) * (amplitudes.T*inversion)))
+            #sympy.pprint(final_amplitude)
         if output == 'tex':
             substitutions = [ (a, f'Abs(A({i},{j},{k}))**2') for a, (i,j,k) in zip(amplitudes, basis_parameters) ]
             print(substitutions)
@@ -68,12 +86,40 @@ def get_amplitude_function( basis_parameters, as_scalar=True, base_equations=ful
             with open('final_amplitude_'+name+'.tex','w') as output:
                 output.write('$\n'+sympy.latex(out_equation)+'\n$\n')
 
-        amplitude_function = sympy.lambdify([_k2v, _kl, _kv]+[*amplitudes], final_amplitude, 'numpy')
+        if type(preloaded_amplitudes) == type(None):
+            amplitude_function = sympy.lambdify([_k2v, _kl, _kv]+[*amplitudes], final_amplitude, 'numpy')
+        else:
+            amplitude_function = sympy.lambdify([_k2v, _kl, _kv], final_amplitude, 'numpy')
         return amplitude_function
     else:
         final_weight = term_vector.T * inversion
         reweight_vector = sympy.lambdify([_k2v, _kl, _kv], final_weight, 'numpy')
         return reweight_vector
+
+
+def get_theory_xsec_function():
+    basis_list = [
+        ( 1.  ,  1. ,  1.  ),
+        ( 1.5 ,  1. ,  1.  ),
+        ( 2.  ,  1. ,  1.  ),
+        ( 1.  ,  0. ,  1.  ),
+        ( 1.  , 10. ,  1.  ),
+        ( 1.  ,  1. ,  1.5 )
+    ]
+
+    theory_xsecs = [ #fb
+         1.1836,
+         2.3032,
+         9.9726,
+         3.1659,
+        67.377,
+        45.412
+    ]
+
+    amp_function = get_amplitude_function(basis_list, preloaded_amplitudes=theory_xsecs, output='ascii')
+    amp_function = get_amplitude_function(basis_list)
+    theory_xsec_function = lambda couplings: amp_function(*couplings, *theory_xsecs)
+    return theory_xsec_function
 
 
 
@@ -165,6 +211,41 @@ def plot_all_couplings(prefix, amplitude_function, basis_files, coupling_paramet
 
 
 
+def plot_all_couplings_reco(prefix, file_name, plotdir=''):
+    # Read in base parameters file
+    basis_parameters = []
+    basis_files = []
+    with open(file_name) as basis_list_file:
+        for line in basis_list_file:
+            if line.strip().startswith('#'): continue
+            linedata = line.split()
+            if len(linedata) < 3: continue
+            basis_parameters.append(linedata[:3])
+            basis_files.append(linedata[3])
+
+    coupling_linear_array = basis_parameters
+
+    var_edges = numpy.linspace(250, 2000, 51)
+    from reweight_utils import extract_ntuple_events, retrieve_reco_weights
+    base_events_list = [ extract_ntuple_events(b,key='m_hh',filter_vbf=False) for b in basis_files ]
+    base_histograms = [ retrieve_reco_weights(var_edges, base_events) for base_events in base_events_list ]
+    weight_list, error_list = numpy.array(list(zip(*base_histograms)))
+
+    xedges = var_edges
+    yedges = range(len(coupling_linear_array)+1)
+    bin_edges = numpy.array([ (x,y) for x in xedges[:-1] for y in yedges[:-1] ]).transpose()
+
+    safe_divide = lambda l,s: l if s == 0 else l/s
+    horizontally_normalized_weight_list = numpy.array( [ safe_divide(w,w.sum()) for w in weight_list] )
+    vertically_normalized_weight_list =  weight_list / weight_list.sum(axis=0) 
+    hash_normalized_weight_list = horizontally_normalized_weight_list / horizontally_normalized_weight_list.sum(axis=0)
+    hash_max_normalized_weight_list = horizontally_normalized_weight_list / horizontally_normalized_weight_list.max(axis=0)
+
+    if not os.path.isdir('plots/'+plotdir): os.mkdir('plots/'+plotdir)
+    plot_scan(prefix+'hash_max','Hash-Max Normalized', 'Weights',coupling_linear_array[::-1],bin_edges,xedges,yedges,hash_max_normalized_weight_list[::-1], plotdir=plotdir)
+
+
+
 
 
 
@@ -178,20 +259,20 @@ def main():
     #    ('2'  , '1', '-1' )
     #]
 
-    #validation_states = [
-    #    [1    , 1   , 1   ],
-    #    [0    , 1   , 1   ],
-    #    [0.5  , 1   , 1   ],
-    #    [1.5  , 1   , 1   ],
-    #    [2    , 1   , 1   ],
-    #    [3    , 1   , 1   ],
-    #    [1    , 0   , 1   ],
-    #    [1    , 2   , 1   ],
-    #    [1    , 10  , 1   ],
-    #    [1    , 1   , 0.5 ],
-    #    [1    , 1   , 1.5 ],
-    #    [0    , 0   , 1   ]
-    #]
+    validation_states = [
+        [1    , 1   , 1   ],
+        [0    , 1   , 1   ],
+        [0.5  , 1   , 1   ],
+        [1.5  , 1   , 1   ],
+        [2    , 1   , 1   ],
+        [3    , 1   , 1   ],
+        [1    , 0   , 1   ],
+        [1    , 2   , 1   ],
+        [1    , 10  , 1   ],
+        [1    , 1   , 0.5 ],
+        [1    , 1   , 1.5 ],
+        [0    , 0   , 1   ]
+    ]
 
     #possible_validation_combinations = itertools.combinations(validation_states,6)
     #total_possible = 0
@@ -210,30 +291,31 @@ def main():
     #]
     ##get_amplitude_function('validation', full_scan_terms, validation_basis)
 
-    #existing_states = [ #k2v, kl, kv
-    #    [1  , 1   , 1   ], # 450044
-    #    #[1  , 2   , 1   ], # 450045
-    #    [2  , 1   , 1   ], # 450046
-    #    #[1.5, 1   , 1   ], # 450047
-    #    #[1  , 1   , 0.5 ], # 450048 - !!
-    #    [0.5, 1   , 1   ], # 450049
-    #    #[0  , 1   , 1   ], # 450050
-    #    [0  , 1   , 0.5 ], # 450051 - !!
-    #    [1  , 0   , 1   ], # 450052 - ***
-    #    #[0  , 0   , 1   ], # 450053 - !!
-    #    #[4  , 1   , 1   ], # 450054
-    #    [1  , 10  , 1   ], # 450055 - ***
-    #    #[1  , 1   , 1.5 ]  # 450056 - !!
-    #]
+    existing_states = [ #k2v, kl, kv
+        [1  , 1   , 1   ], # 450044
+        #[1  , 2   , 1   ], # 450045
+        [2  , 1   , 1   ], # 450046
+        #[1.5, 1   , 1   ], # 450047
+        #[1  , 1   , 0.5 ], # 450048 - !!
+        [0.5, 1   , 1   ], # 450049
+        #[0  , 1   , 1   ], # 450050
+        [0  , 1   , 0.5 ], # 450051 - !!
+        [1  , 0   , 1   ], # 450052 - ***
+        #[0  , 0   , 1   ], # 450053 - !!
+        #[4  , 1   , 1   ], # 450054
+        [1  , 10  , 1   ], # 450055 - ***
+        #[1  , 1   , 1.5 ]  # 450056 - !!
+    ]
 
     ##basis_states = [ [ sympy.Rational(param) for param in basis ] for basis in existing_states ]
     ##kappa_matrix = sympy.Matrix([ [ g(*base) for g in full_scan_terms ] for base in basis_states])
     ##sympy.pprint(kappa_matrix)
 
     #possible_existing_combinations = itertools.combinations(existing_states,6)
+    #possible_existing_combinations = itertools.combinations(validation_states,6)
     #total_possible = 0
     #for combination in possible_existing_combinations:
-    #    total_possible += get_amplitude_function(str(combination), full_scan_terms, combination)
+    #    if is_valid_combination(combination): total_possible += 1
     #print()
     #print(total_possible)
 
@@ -247,6 +329,9 @@ def main():
     #]
     #get_amplitude_function('existing', full_scan_terms, existing_basis)
 
+    #file_name = 'basis_files/nnt_basis.dat'
+    #plot_all_couplings_reco('reco', file_name, plotdir='distro_heatmaps/')
+
     current_3D_reco_basis = [ #k2v, kl, kv
         [1    , 1   , 1   ],
         [2    , 1   , 1   ],
@@ -255,7 +340,8 @@ def main():
         [1    , 0   , 1   ],
         [1    , 10  , 1   ]
     ]
-    #get_amplitude_function( current_3D_reco_basis, name='current_3D_reco', output='tex')
+    #get_amplitude_function( current_3D_reco_basis, output='ascii' )
+    #print('\n\n\n-------------------------\n\n')
     truth_basis = [
         [1   ,   1  ,  1  ],
         [1.5 ,   1  ,  1  ],
@@ -264,7 +350,7 @@ def main():
         [1   ,   10 ,  1  ],
         [1   ,   1  ,  1.5]
     ]
-    #get_amplitude_function( truth_basis, name='truth_basis', output='tex')
+    #get_amplitude_function( truth_basis, output='ascii' )
 
     #kl_basis_states = [
     #    ('0  ' , '0 '  , '1  ' ),
@@ -288,31 +374,31 @@ def main():
     #print()
     #print(total_possible)
 
-    kl_basis = [
-        [1   ,   0  ,  1  ],
-        [1   ,   1  ,  1  ],
-        [1   ,   20 ,  1  ],
-    ]
+    #kl_basis = [
+    #    [1   ,   0  ,  1  ],
+    #    [1   ,   1  ,  1  ],
+    #    [1   ,   20 ,  1  ],
+    #]
     #get_amplitude_function(kl_basis, base_equations=kl_scan_terms, output='tex', name='kl_test' )
     #vector_function = get_amplitude_function(kl_basis, base_equations=kl_scan_terms, as_scalar=False)
     #vector = vector_function(1,2,1)[0]
     #print(vector)
 
-    k2v_basis_states = [
-        ('1'  , '1', '1'  ),
-        ('0'  , '1', '1'  ),
-        ('2'  , '1', '1' )
-    ]
-    get_amplitude_function(k2v_basis_states, base_equations=k2v_scan_terms, output='tex', name='alle_test' )
+    #k2v_basis_states = [
+    #    ('1'  , '1', '1'  ),
+    #    ('0'  , '1', '1'  ),
+    #    ('2'  , '1', '1' )
+    #]
+    #get_amplitude_function(k2v_basis_states, base_equations=k2v_scan_terms, output='tex', name='alle_test' )
 
-    kl_k2v_basis_states = [
-        ('1'  , '1', '1'  ),
-        ('-1'  , '0', '1' ),
-        ('0'  , '1', '1'  ),
-        ('3/2', '1', '1'  ),
-        ('1'  , '3/2', '1'  ),
-        ('1'  , '-1', '1' )
-    ]
+    #kl_k2v_basis_states = [
+    #    ('1'  , '1', '1'  ),
+    #    ('-1'  , '0', '1' ),
+    #    ('0'  , '1', '1'  ),
+    #    ('3/2', '1', '1'  ),
+    #    ('1'  , '3/2', '1'  ),
+    #    ('1'  , '-1', '1' )
+    #]
 
     #get_amplitude_function('all', full_scan_terms, full_basis_states)
     #print('\n\n\n')
@@ -320,6 +406,7 @@ def main():
     #print('\n\n\n')
     #get_amplitude_function('k2v', k2v_equation_list, k2v_basis_states)
     #get_amplitude_function('kl_k2v', kl_k2v_equation_list, kl_k2v_basis_states)
+    get_theory_xsec_function()
 
 
 if __name__ == '__main__': main()
