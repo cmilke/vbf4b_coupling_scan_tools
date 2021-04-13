@@ -40,18 +40,30 @@ def extract_lhe_truth_data(file_list, mHH_edges, normalize=False):
 
 
 
-def extract_ntuple_events(ntuple, key=None, unit_conversion=None, tree_name=b'sig', filter_vbf=True):
+def extract_ntuple_events(ntuple, key=None, unit_conversion=None, tree_name=b'sig', filter_vbf=True, lumi_weight=True):
     ttree = uproot.rootio.open(ntuple)[tree_name]
-    if filter_vbf:
-        frame = ttree.pandas.df(branches=[key,'mc_sf','pass_vbf_sel'])
-        frame = frame[ frame['pass_vbf_sel'] ]
-    else:
-        frame = ttree.pandas.df(branches=[key,'mc_sf'])
+    branches = [key,'mc_sf']
+    if filter_vbf: branches.append('pass_vbf_sel')
+    if lumi_weight: branches.append('run_number')
+
+    frame = ttree.pandas.df(branches=branches)
+    if filter_vbf: frame = frame[ frame['pass_vbf_sel'] ]
+
     unit_conversion = 1
     if key == 'truth_mhh': unit_conversion = 1/1000
     vals  = frame[key].values * unit_conversion
     weights = frame['mc_sf'].values
-    #weights *= 58.45 #for MC16e
+    if lumi_weight:
+        run_number = frame['run_number']
+        mc2015 = run_number < 296939
+        mc2016 = numpy.logical_and(296939 < run_number, run_number < 320000)
+        mc2017 = numpy.logical_and(320000 < run_number, run_number < 350000)
+        mc2018 = numpy.logical_and(350000 < run_number, run_number < 370000)
+        weights[mc2015] *=  3.2
+        weights[mc2016] *= 24.6
+        weights[mc2017] *= 43.65
+        weights[mc2018] *= 58.45
+
     events = numpy.array([vals,weights])
     return events
 

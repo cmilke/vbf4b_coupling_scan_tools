@@ -8,7 +8,8 @@ from matplotlib import pyplot as plt
 #import pdb
 
 from fileio_utils import read_coupling_file, get_events, retrieve_reco_weights
-from  combination_utils import get_amplitude_function
+from combination_utils import get_amplitude_function
+from combination_utils import basis_full3D_max as _reco_basis 
 from reweight_utils import reco_reweight
 
 def plot_histogram(hist_name, hist_title, edge_list, coupling_parameters,
@@ -93,6 +94,7 @@ def plot_histogram(hist_name, hist_title, edge_list, coupling_parameters,
 
 
 
+#FIXME broken
 def validate_truth_combinations(basis_parameters, basis_files, verification_parameters, verification_files):
     edge_list = numpy.arange(0, 2050, 50)
     basis_weight_list, basis_error_list = reweight_utils.extract_lhe_truth_data(basis_files, edge_list)
@@ -160,8 +162,7 @@ def main():
     if args.mode == 'truth':
         validate_truth_combinations(basis_parameters, basis_files, verification_parameters, verification_files)
     elif args.mode == 'reco':
-        basis_parameters = [ (1, 1, 1), (2, 1, 1), (0.5, 1, 1), (0, 1, 0.5), (1, 0, 1), (1, 10, 1) ]
-        validate_reco_method(basis_parameters, verification_parameters)
+        validate_reco_method(_reco_basis, verification_parameters)
     else:
         print('Mode - '+str(args.mode)+' - is not valid.')
         print('Please choose from:\ntruth\nrwgt_truth\nreweight\nreco\n')

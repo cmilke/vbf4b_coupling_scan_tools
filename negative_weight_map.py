@@ -9,35 +9,40 @@ from matplotlib import pyplot as plt
 
 #import pdb
 
-import combination_utils
-import reweight_utils
+from fileio_utils import read_coupling_file, get_events, retrieve_reco_weights
+from combination_utils import get_amplitude_function
+from combination_utils import basis_full3D_max as _reco_basis 
+from reweight_utils import reco_reweight
 
-_scan_terms = combination_utils.full_scan_terms
 
-
-def generate_error_maps(basis_parameters, basis_files):
-    reweight_vector = combination_utils.get_amplitude_function(basis_parameters, as_scalar=False, base_equations=_scan_terms)
+def generate_error_maps(basis_parameters):
+    reweight_vector = get_amplitude_function(basis_parameters, as_scalar=False)
     #var_edges = numpy.linspace(250, 2000, 101)
     #var_edges = range(200, 1200, 33)
     var_edges = numpy.linspace(200, 1200, 31)
     num_bins = len(var_edges) - 1
 
-    base_events_list = [ reweight_utils.extract_ntuple_events(b,key='m_hh',filter_vbf=False) for b in basis_files ]
-    base_histograms = [ reweight_utils.retrieve_reco_weights(var_edges, base_events) for base_events in base_events_list ]
+    data_files = read_coupling_file('basis_files/nnt_coupling_file.dat')
+    base_events_list = get_events(basis_parameters, data_files)
+    base_histograms = [ retrieve_reco_weights(var_edges, base_events) for base_events in base_events_list ]
     base_weights, base_errors = numpy.array(list(zip(*base_histograms)))
+    #print(base_weights)
 
     kv_val = 1.0
     k2v_val_range = numpy.linspace(-1,3,51)
     kl_val_range = numpy.linspace(-14,16,51)
-    #k2v_val_range = [1,1.5,2] 
+    #k2v_val_range = [0,1,2] 
     #kl_val_range = [-8,-9,-10]
     varlen = len(var_edges)
     negative_frac_grid = numpy.zeros( (len(k2v_val_range),len(kl_val_range)) )
     for k2v_i, k2v_val in enumerate(k2v_val_range):
         for kl_j, kl_val in enumerate(kl_val_range):
             coupling_parameters = (k2v_val, kl_val, kv_val)
-            combined_weights, combined_errors = reweight_utils.reco_reweight(reweight_vector, coupling_parameters, base_weights, base_errors)
+            combined_weights, combined_errors = reco_reweight(reweight_vector, coupling_parameters, base_weights, base_errors)
             num_negative = 0
+            #print(k2v_val, kl_val)
+            #print(combined_weights)
+            #print()
             for i,w in enumerate(combined_weights):
                 if w < 0:
                     num_negative += 1
@@ -81,25 +86,14 @@ def generate_error_maps(basis_parameters, basis_files):
 
 def main():
     # Sort out command-line arguments
-    parser = argparse.ArgumentParser()
-    parser.add_argument( "--basis", required = False, default = 'basis_files/nnt_basis.dat', type=str,
-        help = "File to provide basis states",)
-
-    args = parser.parse_args()
-
-    # Read in base parameters file
-    basis_parameters = []
-    basis_files = []
-    with open(args.basis) as basis_list_file:
-        for line in basis_list_file:
-            if line.strip().startswith('#'): continue
-            linedata = line.split()
-            if len(linedata) < 3: continue
-            basis_parameters.append(linedata[:3])
-            basis_files.append(linedata[3])
+#    parser = argparse.ArgumentParser()
+#    parser.add_argument( "--basis", required = False, default = 'basis_files/nnt_basis.dat', type=str,
+#        help = "File to provide basis states",)
+#
+#    args = parser.parse_args()
 
     #pdb.set_trace()
-    generate_error_maps(basis_parameters, basis_files)
+    generate_error_maps(_reco_basis)
 
 
 if __name__ == '__main__': main()

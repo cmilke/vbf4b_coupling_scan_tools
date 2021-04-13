@@ -41,6 +41,16 @@ full_scan_terms = [
 ]
 
 
+basis_full3D_max = [ 
+   (1, 1, 1),
+   (2, 1, 1),
+   (1.5, 1, 1),
+   (0, 1, 0.5),
+   (1, 0, 1),
+   (1, 10, 1)
+]
+
+
 
 def is_valid_combination(basis_parameters, base_equations=full_scan_terms):
     basis_states = [ [ sympy.Rational(param) for param in basis ] for basis in basis_parameters ]
@@ -293,16 +303,16 @@ def main():
 
     existing_states = [ #k2v, kl, kv
         [1  , 1   , 1   ], # 450044
-        #[1  , 2   , 1   ], # 450045
+        [1  , 2   , 1   ], # 450045
         [2  , 1   , 1   ], # 450046
-        #[1.5, 1   , 1   ], # 450047
+        [1.5, 1   , 1   ], # 450047
         #[1  , 1   , 0.5 ], # 450048 - !!
         [0.5, 1   , 1   ], # 450049
-        #[0  , 1   , 1   ], # 450050
+        [0  , 1   , 1   ], # 450050
         [0  , 1   , 0.5 ], # 450051 - !!
         [1  , 0   , 1   ], # 450052 - ***
         #[0  , 0   , 1   ], # 450053 - !!
-        #[4  , 1   , 1   ], # 450054
+        [4  , 1   , 1   ], # 450054
         [1  , 10  , 1   ], # 450055 - ***
         #[1  , 1   , 1.5 ]  # 450056 - !!
     ]
@@ -311,13 +321,15 @@ def main():
     ##kappa_matrix = sympy.Matrix([ [ g(*base) for g in full_scan_terms ] for base in basis_states])
     ##sympy.pprint(kappa_matrix)
 
-    #possible_existing_combinations = itertools.combinations(existing_states,6)
+    possible_existing_combinations = itertools.combinations(existing_states,6)
     #possible_existing_combinations = itertools.combinations(validation_states,6)
-    #total_possible = 0
-    #for combination in possible_existing_combinations:
-    #    if is_valid_combination(combination): total_possible += 1
-    #print()
-    #print(total_possible)
+    total_possible = 0
+    for combination in possible_existing_combinations:
+        if is_valid_combination(combination):
+           print(combination)
+           total_possible += 1
+    print()
+    print(total_possible)
 
     #existing_basis = [ #k2v, kl, kv
     #    [1.5  , 1   , 1   ],
@@ -406,7 +418,7 @@ def main():
     #print('\n\n\n')
     #get_amplitude_function('k2v', k2v_equation_list, k2v_basis_states)
     #get_amplitude_function('kl_k2v', kl_k2v_equation_list, kl_k2v_basis_states)
-    get_theory_xsec_function()
+   #get_theory_xsec_function()
 
 
 if __name__ == '__main__': main()
