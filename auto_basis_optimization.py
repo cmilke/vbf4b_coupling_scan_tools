@@ -1,159 +1,84 @@
 import sys
 import argparse
-import sympy
 import numpy
-import uproot
-import inspect
 import itertools
+import matplotlib
+matplotlib.use('Agg')
+from matplotlib import pyplot as plt
 
-import combination_utils
+#import pdb
+
+from combination_utils import is_valid_combination
+from fileio_utils import read_coupling_file, get_events, retrieve_reco_weights
+from negative_weight_map import get_negative_weight_grid, draw_error_map
 
 
-def perform_optimization(amplitude_function, basis_files, coupling_array, base_equations=combination_utils.full_equation_list):
-    if len(basis_files) < 1: return
+def draw_rankings(ranks_to_draw, valid_bases, var_edges, kv_val, k2v_val_range, kl_val_range, name_infix):
+    print('Drawing basis ranks ' + str(ranks_to_draw))
+    max_negative_weight = max([ numpy.max(valid_bases[rank][2]) for rank in ranks_to_draw ])
+    for rank in ranks_to_draw:
+        print('Drawing rank ' + str(rank) + '...')
+        basis = valid_bases[rank]
+        draw_error_map(basis[1], var_edges, kv_val, k2v_val_range, kl_val_range, basis[2], 
+                vmax = max_negative_weight, name_suffix=f'_{name_infix}rank{rank:03d}', 
+                title_suffix=f'Rank {rank+1}/{len(valid_bases)}, Integral={int(basis[0])}')
 
-    hist_key = b'HH_m'
-    basis_weight_list = []
-    edge_list = []
-    for base_file in basis_files:
-        directory = uproot.open(base_file)
-        root_hist = directory[hist_key]
-        weights, edges = root_hist.numpy()
-        basis_weight_list.append(weights)
-        errors = numpy.sqrt(root_hist.variances)
-        if len(edge_list) == 0: edge_list = edges
-    combination_function = lambda params: amplitude_function(*params, *basis_weight_list)
-    print('Combination Function Acquired, generating requested states...')
 
-    # Get Normalized (per basis) weights
-    norm_weight_list = []
-    for couplings in coupling_array:
-        bins = combination_function(couplings)
-        total = bins.sum()
-        norm_weight = bins if total == 0 else bins/total
-        norm_weight_list.append(norm_weight)
-    norm_weight_linear_array = numpy.array(norm_weight_list)
+def optimize_reco():
+    var_edges = numpy.linspace(200, 1200, 31)
+    kv_val = 1.0
+    k2v_val_range = numpy.linspace(-2,4,51)
+    kl_val_range = numpy.linspace(-14,16,51)
 
-    # Get top contenders for basis states if there are too many
-    if len(coupling_array) > 20:
-        per_bin_max_linear_indices = norm_weight_linear_array.argmax(axis=0)
-        top_contender_indices = numpy.unique(per_bin_max_linear_indices)
-        coupling_array = coupling_array[ top_contender_indices ]
-        norm_weight_linear_array = norm_weight_linear_array[ top_contender_indices ]
-    print('Maximum States Identified, generating combinations')
-    coupling_weight_tuples = zip(coupling_array, norm_weight_linear_array)
-    coupling_combinations = itertools.combinations(coupling_weight_tuples, len(basis_files))
-    weighted_combinations = [ list(zip(*c)) for c in coupling_combinations ]
+    data_files = read_coupling_file('basis_files/nnt_coupling_file.dat')
+    all_events = get_events(data_files.keys(), data_files)
+    all_histograms = [ retrieve_reco_weights(var_edges,events) for events in all_events ]
+    # Wrap all variations up together with their histograms so I can find combinations
+    all_variations = list(zip(data_files.keys(), all_histograms))
+    print('Histograms loaded, proceeding to integrate Nweight grids...')
 
-    print('Filtering to valid combinations...')
-    valid_combinations = [ (numpy.array(c),numpy.array(w)) for c,w in weighted_combinations if combination_utils.is_valid_combination(c, base_equations=base_equations) ]
-    print('Sorting...')
-    ordered_combinations = [ ( weights.max(axis=0).sum(), couplings ) for couplings, weights in valid_combinations ]
-    ordered_combinations.sort(reverse=True,key=lambda c: c[0])
-    final_couplings = ordered_combinations[0][1]
-    #print( len(ordered_combinations))
-    #for i, (w,b) in enumerate(ordered_combinations[:15]):
-    #    print(i)
-    #    print(b)
-    #    print()
+    valid_bases = []
+    total = 0
+    for basis_set in itertools.combinations(all_variations,6):
+        # Unwrap each combination
+        couplings, histograms = list(zip(*basis_set))
+        if not is_valid_combination(couplings): continue
+        if (1.0,1.0,1.0) not in couplings: continue
+        weights, errors = numpy.array( list(zip(*histograms)) )
+        grid_pixel_area = (k2v_val_range[1] - k2v_val_range[0]) * (kl_val_range[1] - kl_val_range[0])
+        negative_weight_grid = get_negative_weight_grid(couplings, weights, errors, kv_val, k2v_val_range, kl_val_range)
+        grid_integral = numpy.sum( negative_weight_grid * grid_pixel_area )
+        valid_bases.append( (grid_integral, couplings, negative_weight_grid) )
+        total += 1
+        if total % 10 == 0: print(total)
+    print('Integrals computed, sorting and printing...')
+    valid_bases.sort()
+    for rank, (integral, couplings, grid) in enumerate(valid_bases): print(rank, int(integral), couplings)
 
-    #for index, (val, arr) in enumerate(ordered_combinations[:9]):
-    for index, (val, arr) in enumerate([ordered_combinations[12]]):
-        print(val)
-        print(arr)
-        combination_utils.get_amplitude_function(final_couplings, base_equations=base_equations, output='tex', name=f'recoR{index}')
-        combination_utils.plot_all_couplings(f'kl_R{index}_', amplitude_function, basis_files, arr[::-1], plotdir='auto_chosen/')
-        print()
-    #print()
-    #print(final_couplings)
 
-    #get_amplitude_function(final_couplings) # Make sure the final states are actually invertable
-    #plot_all_couplings('auto_chosen_', amplitude_function, basis_files, final_couplings)
-        
+    ranks_to_draw = 0, int(len(valid_bases)/2), 27#, len(valid_bases)-1
+    draw_rankings(ranks_to_draw, valid_bases, var_edges, kv_val, k2v_val_range, kl_val_range, '')
+    draw_rankings([0,1,2], valid_bases, var_edges, kv_val, k2v_val_range, kl_val_range, 'top')
+
 
 
 def main():
     # Sort out command-line arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument( "--basis", required = True, default = None, type=str,
-        help = "File to provide basis states",)
+    parser.add_argument( "--mode", required = False, default = 'reco', type=str,
+        help = "Options are: 'truth' or 'reco'",) 
 
     args = parser.parse_args()
 
-    # Read in base parameters file
-    basis_parameters = []
-    basis_files = []
-    with open(args.basis) as basis_list_file:
-        for line in basis_list_file:
-            if line.strip().startswith('#'): continue
-            linedata = line.split()
-            if len(linedata) < 3: continue
-            basis_parameters.append(linedata[:3])
-            basis_files.append(linedata[3])
-
-    #coupling_nested_list = [  [ [[k2v,kl,kv] for kv in _kv_coupling_range] for kl in _kl_coupling_range ] for k2v in _k2v_coupling_range  ]
-    #coupling_array = numpy.array(coupling_nested_list)
-    #coupling_list = numpy.reshape(coupling_array, (_k2v_len*_kl_len*_kv_len,3))
-
-    #validation_states = [
-    #    [1    , 1   , 1   ],
-    #    [0    , 1   , 1   ],
-    #    [0.5  , 1   , 1   ],
-    #    [1.5  , 1   , 1   ],
-    #    [2    , 1   , 1   ],
-    #    [3    , 1   , 1   ],
-    #    [1    , 0   , 1   ],
-    #    [1    , 2   , 1   ],
-    #    [1    , 10  , 1   ],
-    #    [1    , 1   , 0.5 ],
-    #    [1    , 1   , 1.5 ],
-    #    [0    , 0   , 1   ]
-    #]
-    #coupling_array = numpy.array(validation_states)
-
-    #existing_states = [ #k2v, kl, kv
-    #    [1  , 1   , 1   ], # 450044 ***
-    #    [1  , 2   , 1   ], # 450045
-    #    [2  , 1   , 1   ], # 450046 ***
-    #    [1.5, 1   , 1   ], # 450047 ***
-    #    [1  , 1   , 0.5 ], # 450048 - !!
-    #    [0.5, 1   , 1   ], # 450049
-    #    [0  , 1   , 1   ], # 450050
-    #    [0  , 1   , 0.5 ], # 450051 - !! *** ???
-    #    [1  , 0   , 1   ], # 450052 ***
-    #    [0  , 0   , 1   ], # 450053 - !!
-    #    [4  , 1   , 1   ], # 450054
-    #    [1  , 10  , 1   ], # 450055 ***
-    #    [1  , 1   , 1.5 ]  # 450056 - !! XXX
-    #]
-    #coupling_array = numpy.array(existing_states)
-
-    kl_basis_states = [
-        [0   , 0   , 1   ],
-        [1   , 0   , 1   ],
-        [0   , 1   , 1   ],
-        [0   , 1   , 0.5 ],
-        [0.5 , 1   , 1   ],
-        [1   , 1   , 0.5 ],
-        [1   , 1   , 1   ],
-        [1.5 , 1   , 1   ],
-        [2   , 1   , 1   ],
-        [4   , 1   , 1   ],
-        [1   , 2   , 1   ],
-        [1   , 10  , 1   ],
-        [1   , 11  , 1.5 ]
-    ]
-    coupling_array = numpy.array(kl_basis_states)
-    base_equations=combination_utils.kl_scan_terms
-
-    # Get amplitude function and perform reweighting
-    amplitude_function = combination_utils.get_amplitude_function(basis_parameters,
-            base_equations = base_equations)
-    if amplitude_function == None:
-        print('Encountered invalid basis state. Aborting')
+    #pdb.set_trace()
+    #numpy.set_printoptions(precision=None, linewidth=400, threshold=10000, sign=' ', formatter={'float':lambda f: f'{int(f):2d}'}, floatmode='fixed')
+    #numpy.set_printoptions(precision=1, linewidth=400, threshold=10000, sign=' ', floatmode='fixed')
+    if args.mode == 'reco': optimize_reco()
+    else:
+        print('Mode - '+str(args.mode)+' - is not valid.')
+        print('Please choose from:\ntruth\nrwgt_truth\nreweight\nreco\n')
+        print('Aborting')
         exit(1)
-    perform_optimization(amplitude_function, basis_files, coupling_array, base_equations=base_equations)
-
 
 
 if __name__ == '__main__': main()
