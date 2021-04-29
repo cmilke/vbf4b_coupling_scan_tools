@@ -91,6 +91,31 @@ def get_cutflow_values(filename, hist_name='FourTagCutflow'):
     return labeled_values
 
 
+def get_combined_cutflow_values(parameter_list, data_files):
+    combined_cutflows = {}
+    for couplings in parameter_list:
+        for f in data_files[couplings]:
+            frame = uproot.rootio.open(f)[b'sig'].pandas.df(branches=['run_number'])
+            run_number = frame['run_number'].values[0]
+            lumi_weight = None
+            if   run_number < 296939: lumi_weight = 3.2 # MC2015
+            elif 296939 < run_number and run_number < 320000: lumi_weight = 24.6  # MC2016
+            elif 320000 < run_number and run_number < 350000: lumi_weight = 43.65 # MC2017
+            elif 350000 < run_number and run_number < 370000: lumi_weight = 58.45 # MC2018
+            else:
+                print("UNKNOWN RUN NUMBER!! -- " + str(run_number))
+                exit(1)
+
+            cutflows = get_cutflow_values(f)
+            lumi_weighted_cutflows = { key:val*lumi_weight for key,val in cutflows.items() }
+            if couplings not in combined_cutflows:
+                combined_cutflows[couplings] = lumi_weighted_cutflows
+            else:
+                for key,val in lumi_weighted_cutflows.items():
+                    combined_cutflows[couplings][key] += val
+    return combined_cutflows
+
+
 def read_coupling_file(coupling_file):
     data_files = {}
     with open(coupling_file) as coupling_list:

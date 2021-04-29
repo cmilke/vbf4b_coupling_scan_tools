@@ -3,7 +3,7 @@ import numpy
 import itertools
 import os
 import matplotlib
-matplotlib.use('Agg')
+#matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 
 _k2v = sympy.Symbol('\kappa_{2V}')
@@ -32,12 +32,12 @@ kl_k2v_scan_terms = [
 ]
 
 full_scan_terms = [
-    lambda k2v,kl,kv: kv**2 * kl**2,
-    lambda k2v,kl,kv: kv**4,
-    lambda k2v,kl,kv: k2v**2,
-    lambda k2v,kl,kv: kv**3 * kl,
-    lambda k2v,kl,kv: k2v * kl * kv,
-    lambda k2v,kl,kv: kv**2 * k2v
+   lambda k2v,kl,kv: kv**2 * kl**2,
+   lambda k2v,kl,kv: kv**4,
+   lambda k2v,kl,kv: k2v**2,
+   lambda k2v,kl,kv: kv**3 * kl,
+   lambda k2v,kl,kv: k2v * kl * kv,
+   lambda k2v,kl,kv: kv**2 * k2v
 ]
 
 
@@ -50,6 +50,15 @@ basis_full3D_max = [
    (1, 10, 1)
 ]
 
+
+basis_full3D_old_minN = [
+      (1, 1, 1),
+      (0, 1, 0.5),
+      (1, 0, 1),
+      (1, 10, 1),
+      (0.5, 1, 1),
+      (4, 1, 1)
+]
 
 
 def is_valid_combination(basis_parameters, base_equations=full_scan_terms):
@@ -260,7 +269,7 @@ def plot_all_couplings_reco(prefix, file_name, plotdir=''):
 
 
 def main():
-    #full_basis_states = [
+   #full_basis_states = [
     #    ('1'  , '1', '1'  ),
     #    ('1'  , '0', '-1' ),
     #    ('0'  , '1', '1'  ),
@@ -270,19 +279,19 @@ def main():
     #]
 
     validation_states = [
-        [1    , 1   , 1   ],
-        [0    , 1   , 1   ],
-        [0.5  , 1   , 1   ],
-        [1.5  , 1   , 1   ],
-        [2    , 1   , 1   ],
-        [3    , 1   , 1   ],
-        [1    , 0   , 1   ],
-        [1    , 2   , 1   ],
-        [1    , 10  , 1   ],
-        [1    , 1   , 0.5 ],
-        [1    , 1   , 1.5 ],
-        [0    , 0   , 1   ]
-    ]
+          [1    , 1   , 1   ],
+          [0    , 1   , 1   ],
+          [0.5  , 1   , 1   ],
+          [1.5  , 1   , 1   ],
+          [2    , 1   , 1   ],
+          [3    , 1   , 1   ],
+          [1    , 0   , 1   ],
+          [1    , 2   , 1   ],
+          [1    , 10  , 1   ],
+          [1    , 1   , 0.5 ],
+          [1    , 1   , 1.5 ],
+          [0    , 0   , 1   ]
+          ]
 
     #possible_validation_combinations = itertools.combinations(validation_states,6)
     #total_possible = 0
@@ -302,34 +311,33 @@ def main():
     ##get_amplitude_function('validation', full_scan_terms, validation_basis)
 
     existing_states = [ #k2v, kl, kv
-        [1  , 1   , 1   ], # 450044
-        [1  , 2   , 1   ], # 450045
-        [2  , 1   , 1   ], # 450046
-        [1.5, 1   , 1   ], # 450047
-        #[1  , 1   , 0.5 ], # 450048 - !!
-        [0.5, 1   , 1   ], # 450049
-        [0  , 1   , 1   ], # 450050
-        [0  , 1   , 0.5 ], # 450051 - !!
-        [1  , 0   , 1   ], # 450052 - ***
-        #[0  , 0   , 1   ], # 450053 - !!
-        [4  , 1   , 1   ], # 450054
-        [1  , 10  , 1   ], # 450055 - ***
-        #[1  , 1   , 1.5 ]  # 450056 - !!
-    ]
+          [1  , 1   , 1   ], # 450044
+          [1  , 2   , 1   ], # 450045
+          [2  , 1   , 1   ], # 450046
+          [1.5, 1   , 1   ], # 450047
+          #[1  , 1   , 0.5 ], # 450048 - !!
+          [0.5, 1   , 1   ], # 450049
+          [0  , 1   , 1   ], # 450050
+          [0  , 1   , 0.5 ], # 450051 - !!
+          [1  , 0   , 1   ], # 450052 - ***
+          #[0  , 0   , 1   ], # 450053 - !!
+          [4  , 1   , 1   ], # 450054
+          [1  , 10  , 1   ], # 450055 - ***
+          #[1  , 1   , 1.5 ]  # 450056 - !!
+          ]
 
     ##basis_states = [ [ sympy.Rational(param) for param in basis ] for basis in existing_states ]
     ##kappa_matrix = sympy.Matrix([ [ g(*base) for g in full_scan_terms ] for base in basis_states])
     ##sympy.pprint(kappa_matrix)
 
-    possible_existing_combinations = itertools.combinations(existing_states,6)
-    #possible_existing_combinations = itertools.combinations(validation_states,6)
-    total_possible = 0
-    for combination in possible_existing_combinations:
-        if is_valid_combination(combination):
-           print(combination)
-           total_possible += 1
-    print()
-    print(total_possible)
+   #possible_existing_combinations = itertools.combinations(existing_states,6)
+   #total_possible = 0
+   # for combination in possible_existing_combinations:
+   #    if is_valid_combination(combination):
+   #       print(combination)
+   #        total_possible += 1
+   # print()
+   # print(total_possible)
 
     #existing_basis = [ #k2v, kl, kv
     #    [1.5  , 1   , 1   ],
@@ -345,23 +353,32 @@ def main():
     #plot_all_couplings_reco('reco', file_name, plotdir='distro_heatmaps/')
 
     current_3D_reco_basis = [ #k2v, kl, kv
-        [1    , 1   , 1   ],
-        [2    , 1   , 1   ],
-        [1.5  , 1   , 1   ],
-        [0    , 1   , 0.5 ],
-        [1    , 0   , 1   ],
-        [1    , 10  , 1   ]
+          [1    , 1   , 1   ],
+          [2    , 1   , 1   ],
+          [1.5  , 1   , 1   ],
+          [0    , 1   , 0.5 ],
+          [1    , 0   , 1   ],
+          [1    , 10  , 1   ]
+          ]
+
+    new_3D_reco_basis = [ #k2v, kl, kv
+       [1  , 1   , 1  ],
+       [0  , 1   , 0.5],
+       [1  , 0   , 1  ],
+       [1  , 10  , 1  ],
+       [0.5, 1   , 1  ],
+       [4  , 1   , 1  ]
     ]
-    #get_amplitude_function( current_3D_reco_basis, output='ascii' )
+    get_amplitude_function( new_3D_reco_basis, output='tex' )
     #print('\n\n\n-------------------------\n\n')
     truth_basis = [
-        [1   ,   1  ,  1  ],
-        [1.5 ,   1  ,  1  ],
-        [2   ,   1  ,  1  ],
-        [1   ,   0  ,  1  ],
-        [1   ,   10 ,  1  ],
-        [1   ,   1  ,  1.5]
-    ]
+          [1   ,   1  ,  1  ],
+          [1.5 ,   1  ,  1  ],
+          [2   ,   1  ,  1  ],
+          [1   ,   0  ,  1  ],
+          [1   ,   10 ,  1  ],
+          [1   ,   1  ,  1.5]
+          ]
     #get_amplitude_function( truth_basis, output='ascii' )
 
     #kl_basis_states = [

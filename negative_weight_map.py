@@ -37,7 +37,7 @@ def get_negative_weight_grid(couplings, weights, errors, kv_val, k2v_val_range, 
 def nice_coupling_string(coupling):
     str_list = []
     for kappa in coupling:
-        if kappa.is_integer():
+        if type(kappa) == int or kappa.is_integer():
             str_list.append( f'{int(kappa): 3d}  ' )
         else:
             str_list.append( f'{kappa: 5.1f}' )
@@ -98,8 +98,8 @@ def single_reco_negative_weight_map(basis_parameters):
     kv_val = 1.0
     #k2v_val_range = [0,1,2] 
     #kl_val_range = [-8,-9,-10]
-    k2v_val_range = numpy.linspace(-1,3,51)
-    kl_val_range = numpy.linspace(-14,16,51)
+    k2v_val_range = numpy.linspace(-1,3,101)
+    kl_val_range = numpy.linspace(-14,16,101)
 
     data_files = read_coupling_file('basis_files/nnt_coupling_file.dat')
     base_events_list = get_events(basis_parameters, data_files)
@@ -109,7 +109,10 @@ def single_reco_negative_weight_map(basis_parameters):
 
     negative_weight_grid = get_negative_weight_grid(basis_parameters, base_weights, base_errors, kv_val, k2v_val_range, kl_val_range)
 
-    draw_error_map(basis_parameters, var_edges, kv_val, k2v_val_range, kl_val_range, negative_weight_grid)
+    draw_error_map(basis_parameters, var_edges, kv_val, k2v_val_range, kl_val_range, negative_weight_grid, 
+                name_suffix='_mc16ade_old', title_suffix='MC16a/d/e')
+                #name_suffix='_mc16d_old', vmax=12, title_suffix='MC16d Only')
+                #name_suffix='_mc16ad_old', vmax=12, title_suffix='MC16a and MC16d')
 
 
 

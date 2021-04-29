@@ -27,8 +27,8 @@ def draw_rankings(ranks_to_draw, valid_bases, var_edges, kv_val, k2v_val_range, 
 def optimize_reco():
     var_edges = numpy.linspace(200, 1200, 31)
     kv_val = 1.0
-    k2v_val_range = numpy.linspace(-2,4,51)
-    kl_val_range = numpy.linspace(-14,16,51)
+    k2v_val_range = numpy.linspace(-2,4,101)
+    kl_val_range = numpy.linspace(-14,16,101)
 
     data_files = read_coupling_file('basis_files/nnt_coupling_file.dat')
     all_events = get_events(data_files.keys(), data_files)
