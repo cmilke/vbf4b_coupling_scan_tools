@@ -15,6 +15,23 @@ from combination_utils import basis_full3D_max as _reco_basis
 from reweight_utils import reco_reweight
 
 
+def get_Nweight_sum(couplings, weights, kv_val, k2v_val_range, kl_val_range, grid=False):
+    numpy.set_printoptions(threshold=sys.maxsize, linewidth=230, precision=0, floatmode='fixed', suppress=True)
+    reweight_vector_function = get_amplitude_function(couplings, as_scalar=False)
+    k2v_grid, kl_grid = numpy.meshgrid(k2v_val_range, kl_val_range)
+    multiplier_grid_vector = reweight_vector_function(k2v_grid, kl_grid, kv_val)[0]
+    combined_weights = sum([ multiplier_grid[...,None] * w for multiplier_grid, w in zip(multiplier_grid_vector, weights) ])
+    negative_boolean_grid = combined_weights < 0
+    if grid:
+        nWeight_totals = negative_boolean_grid.sum(axis=2)
+        return nWeight_totals
+    else:
+        grid_pixel_area = (k2v_val_range[1] - k2v_val_range[0]) * (kl_val_range[1] - kl_val_range[0])
+        nWeight_integral = negative_boolean_grid.sum() * grid_pixel_area
+        return nWeight_integral
+
+
+# Depracated, use above
 def get_negative_weight_grid(couplings, weights, errors, kv_val, k2v_val_range, kl_val_range):
     reweight_vector = get_amplitude_function(couplings, as_scalar=False)
     negative_weight_grid = numpy.zeros( (len(k2v_val_range),len(kl_val_range)) )
@@ -59,7 +76,8 @@ def draw_error_map(basis_parameters, var_edges, kv_val, k2v_val_range, kl_val_ra
         plottable_couplings[index][1].append(kl)
 
     fig, ax = plt.subplots()
-    im = ax.imshow(negative_weight_grid.transpose(), vmin=vmin, vmax=vmax, extent=ranges, origin='lower', cmap='plasma')
+    #im = ax.imshow(negative_weight_grid.transpose(), vmin=vmin, vmax=vmax, extent=ranges, origin='lower', cmap='plasma')
+    im = ax.imshow(negative_weight_grid, vmin=vmin, vmax=vmax, extent=ranges, origin='lower', cmap='plasma')
     ax.set_xticks(ticks = numpy.arange(ranges[0],ranges[1]+1,1))
     ax.set_yticks(ticks = numpy.linspace(ranges[2],ranges[3],7))
     ax.set_xlabel('$\kappa_{2V}$')
@@ -107,7 +125,7 @@ def single_reco_negative_weight_map(basis_parameters):
     base_weights, base_errors = numpy.array(list(zip(*base_histograms)))
     #print(base_weights)
 
-    negative_weight_grid = get_negative_weight_grid(basis_parameters, base_weights, base_errors, kv_val, k2v_val_range, kl_val_range)
+    negative_weight_grid = get_Nweight_sum(basis_parameters, base_weights, base_errors, kv_val, k2v_val_range, kl_val_range, grid=True)
 
     draw_error_map(basis_parameters, var_edges, kv_val, k2v_val_range, kl_val_range, negative_weight_grid, 
                 name_suffix='_mc16ade_old', title_suffix='MC16a/d/e')

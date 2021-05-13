@@ -17,47 +17,47 @@ kl_scan_terms = [
 ]
 
 k2v_scan_terms = [
-    lambda k2v,kl,kv: k2v**2
-   ,lambda k2v,kl,kv: k2v
-   ,lambda k2v,kl,kv: 1
+    lambda k2v,kl,kv: k2v**2,
+    lambda k2v,kl,kv: k2v,
+    lambda k2v,kl,kv: 1
 ]
 
 kl_k2v_scan_terms = [
-    lambda k2v,kl,kv: kl**2
-   ,lambda k2v,kl,kv: k2v**2
-   ,lambda k2v,kl,kv: kl
-   ,lambda k2v,kl,kv: k2v * kl
-   ,lambda k2v,kl,kv: k2v
-   ,lambda k2v,kl,kv: 1
+    lambda k2v,kl,kv: kl**2,
+    lambda k2v,kl,kv: k2v**2,
+    lambda k2v,kl,kv: kl,
+    lambda k2v,kl,kv: k2v * kl,
+    lambda k2v,kl,kv: k2v,
+    lambda k2v,kl,kv: 1
 ]
 
 full_scan_terms = [
-   lambda k2v,kl,kv: kv**2 * kl**2,
-   lambda k2v,kl,kv: kv**4,
-   lambda k2v,kl,kv: k2v**2,
-   lambda k2v,kl,kv: kv**3 * kl,
-   lambda k2v,kl,kv: k2v * kl * kv,
-   lambda k2v,kl,kv: kv**2 * k2v
+    lambda k2v,kl,kv: kv**2 * kl**2,
+    lambda k2v,kl,kv: kv**4,
+    lambda k2v,kl,kv: k2v**2,
+    lambda k2v,kl,kv: kv**3 * kl,
+    lambda k2v,kl,kv: k2v * kl * kv,
+    lambda k2v,kl,kv: kv**2 * k2v
 ]
 
 
 basis_full3D_max = [ 
-   (1, 1, 1),
-   (2, 1, 1),
-   (1.5, 1, 1),
-   (0, 1, 0.5),
-   (1, 0, 1),
-   (1, 10, 1)
+    (1, 1, 1),
+    (2, 1, 1),
+    (1.5, 1, 1),
+    (0, 1, 0.5),
+    (1, 0, 1),
+    (1, 10, 1)
 ]
 
 
 basis_full3D_old_minN = [
-      (1, 1, 1),
-      (0, 1, 0.5),
-      (1, 0, 1),
-      (1, 10, 1),
-      (0.5, 1, 1),
-      (4, 1, 1)
+    (1, 1, 1),
+    (0, 1, 0.5),
+    (1, 0, 1),
+    (1, 10, 1),
+    (0.5, 1, 1),
+    (4, 1, 1)
 ]
 
 
@@ -66,6 +66,47 @@ def is_valid_combination(basis_parameters, base_equations=full_scan_terms):
     combination_matrix = sympy.Matrix([ [ f(*base) for f in base_equations ] for base in basis_states])
     return combination_matrix.det() != 0
 
+
+
+def orthogonality_metric(basis_parameters, base_equations=full_scan_terms):
+    #kv_val = sympy.Symbol('kvA')
+    #k2v_val = sympy.Symbol('k2vB')
+    #kl_val = sympy.Symbol('klC')
+    #kv_range = (-kv_val, kv_val)
+    #k2v_range = (-k2v_val, k2v_val)
+    #kl_range = (-kl_val, kl_val)
+
+    kv_range = (.8, 1.2)
+    k2v_range = (-2, 4)
+    kl_range = (-15, 15)
+
+    basis_states = [ [ sympy.Rational(param) for param in basis ] for basis in basis_parameters ]
+    combination_matrix = sympy.Matrix([ [ g(*base) for g in base_equations ] for base in basis_states])
+
+    if combination_matrix.det() == 0: return None
+
+    inversion = combination_matrix.inv()
+    term_vector = sympy.Matrix([ [g(_k2v,_kl,_kv)] for g in base_equations ])
+
+    #print('\n\n\n\nBASIS FUNCTION VECTOR')
+    basis_function_vector = inversion * term_vector
+    #sympy.pprint(basis_function_vector)
+
+    #print('NORMALIZED VECTOR')
+    normalized_basis_vector = sympy.Matrix([ fi / sympy.sqrt(sympy.integrate(fi*fi, (_kv, *kv_range), (_k2v, *k2v_range), (_kl, *kl_range) )) for fi in basis_function_vector])
+    #sympy.pprint(normalized_basis_vector)
+
+    #print('SCALAR PRODUCT')
+    scalar_product = sympy.Matrix([ [ sympy.integrate(fi*fj, (_kv, *kv_range), (_k2v, *k2v_range), (_kl, *kl_range) ) for fj in normalized_basis_vector ] for fi in normalized_basis_vector])
+    sympy.pprint(scalar_product)
+
+    #print('ORTHOGONALITY METRIC')
+    identity = sympy.eye(len(base_equations))
+    orthogonality_metric = abs(sympy.det( scalar_product - identity ))
+    sympy.pprint(orthogonality_metric)
+
+
+    return orthogonality_metric
 
 
 def get_amplitude_function( basis_parameters, as_scalar=True, base_equations=full_scan_terms, name='unnamed', output=None, preloaded_amplitudes=None):
@@ -135,11 +176,24 @@ def get_theory_xsec_function():
         45.412
     ]
 
-    amp_function = get_amplitude_function(basis_list, preloaded_amplitudes=theory_xsecs, output='ascii')
+   #amp_function = get_amplitude_function(basis_list, preloaded_amplitudes=theory_xsecs, output='ascii')
     amp_function = get_amplitude_function(basis_list)
     theory_xsec_function = lambda couplings: amp_function(*couplings, *theory_xsecs)
     return theory_xsec_function
 
+
+
+def get_inversion_vector(couplings):
+    basis_states = [ [ sympy.Rational(param) for param in basis ] for basis in couplings ]
+    combination_matrix = sympy.Matrix([ [ g(*base) for g in full_scan_terms ] for base in basis_states])
+    if combination_matrix.det() == 0: return None
+    inversion = numpy.array(combination_matrix.inv().tolist()).astype(numpy.float64)
+    theory_xsec_function = get_theory_xsec_function()
+    xsec_vector = numpy.array([ theory_xsec_function(c) for c in couplings ])
+
+    inversion_array = (xsec_vector * inversion.transpose()).transpose()
+    #numpy.set_printoptions(formatter={'float':lambda n: f'{n: 4.2f}'})
+    return inversion_array
 
 
 def plot_scan(name,title, title_suffix, reweight_linear_array,
@@ -269,173 +323,58 @@ def plot_all_couplings_reco(prefix, file_name, plotdir=''):
 
 
 def main():
-   #full_basis_states = [
-    #    ('1'  , '1', '1'  ),
-    #    ('1'  , '0', '-1' ),
-    #    ('0'  , '1', '1'  ),
-    #    ('3/2', '1', '1'  ),
-    #    ('1'  , '2', '1'  ),
-    #    ('2'  , '1', '-1' )
-    #]
-
     validation_states = [
-          [1    , 1   , 1   ],
-          [0    , 1   , 1   ],
-          [0.5  , 1   , 1   ],
-          [1.5  , 1   , 1   ],
-          [2    , 1   , 1   ],
-          [3    , 1   , 1   ],
-          [1    , 0   , 1   ],
-          [1    , 2   , 1   ],
-          [1    , 10  , 1   ],
-          [1    , 1   , 0.5 ],
-          [1    , 1   , 1.5 ],
-          [0    , 0   , 1   ]
-          ]
-
-    #possible_validation_combinations = itertools.combinations(validation_states,6)
-    #total_possible = 0
-    #for combination in possible_validation_combinations:
-    #    total_possible += get_amplitude_function(str(combination), full_scan_terms, combination)
-    #print()
-    #print(total_possible)
-
-    #validation_basis = [
-    #    [1.5  , 1   , 1   ], #
-    #    [2    , 1   , 1   ], #
-    #    [1  , 1   , 1.5   ],
-    #    [1    , 1   , 1   ], #
-    #    [1    , 0   , 1   ], #
-    #    [1    , 10  , 1   ], #
-    #]
-    ##get_amplitude_function('validation', full_scan_terms, validation_basis)
+        [1    , 1   , 1   ],
+        [0    , 1   , 1   ],
+        [0.5  , 1   , 1   ],
+        [1.5  , 1   , 1   ],
+        [2    , 1   , 1   ],
+        [3    , 1   , 1   ],
+        [1    , 0   , 1   ],
+        [1    , 2   , 1   ],
+        [1    , 10  , 1   ],
+        [1    , 1   , 0.5 ],
+        [1    , 1   , 1.5 ],
+        [0    , 0   , 1   ]
+    ]
 
     existing_states = [ #k2v, kl, kv
-          [1  , 1   , 1   ], # 450044
-          [1  , 2   , 1   ], # 450045
-          [2  , 1   , 1   ], # 450046
-          [1.5, 1   , 1   ], # 450047
-          #[1  , 1   , 0.5 ], # 450048 - !!
-          [0.5, 1   , 1   ], # 450049
-          [0  , 1   , 1   ], # 450050
-          [0  , 1   , 0.5 ], # 450051 - !!
-          [1  , 0   , 1   ], # 450052 - ***
-          #[0  , 0   , 1   ], # 450053 - !!
-          [4  , 1   , 1   ], # 450054
-          [1  , 10  , 1   ], # 450055 - ***
-          #[1  , 1   , 1.5 ]  # 450056 - !!
-          ]
-
-    ##basis_states = [ [ sympy.Rational(param) for param in basis ] for basis in existing_states ]
-    ##kappa_matrix = sympy.Matrix([ [ g(*base) for g in full_scan_terms ] for base in basis_states])
-    ##sympy.pprint(kappa_matrix)
-
-   #possible_existing_combinations = itertools.combinations(existing_states,6)
-   #total_possible = 0
-   # for combination in possible_existing_combinations:
-   #    if is_valid_combination(combination):
-   #       print(combination)
-   #        total_possible += 1
-   # print()
-   # print(total_possible)
-
-    #existing_basis = [ #k2v, kl, kv
-    #    [1.5  , 1   , 1   ],
-    #    [2    , 1   , 1   ],
-    #    [1    , 2   , 1   ],
-    #    [1    , 1   , 1   ],
-    #    [1    , 0   , 1   ],
-    #    [1    , 10  , 1   ]
-    #]
-    #get_amplitude_function('existing', full_scan_terms, existing_basis)
-
-    #file_name = 'basis_files/nnt_basis.dat'
-    #plot_all_couplings_reco('reco', file_name, plotdir='distro_heatmaps/')
+        [1  , 1   , 1   ], # 450044
+        [1  , 2   , 1   ], # 450045
+        [2  , 1   , 1   ], # 450046
+        [1.5, 1   , 1   ], # 450047
+        #[1  , 1   , 0.5 ], # 450048 - !!
+        [0.5, 1   , 1   ], # 450049
+        [0  , 1   , 1   ], # 450050
+        [0  , 1   , 0.5 ], # 450051 - !!
+        [1  , 0   , 1   ], # 450052 - ***
+        #[0  , 0   , 1   ], # 450053 - !!
+        [4  , 1   , 1   ], # 450054
+        [1  , 10  , 1   ] # 450055 - ***
+        #[1  , 1   , 1.5 ]  # 450056 - !!
+    ]
 
     current_3D_reco_basis = [ #k2v, kl, kv
-          [1    , 1   , 1   ],
-          [2    , 1   , 1   ],
-          [1.5  , 1   , 1   ],
-          [0    , 1   , 0.5 ],
-          [1    , 0   , 1   ],
-          [1    , 10  , 1   ]
-          ]
+       [1    , 1   , 1   ],
+       [2    , 1   , 1   ],
+       [1.5  , 1   , 1   ],
+       [0    , 1   , 0.5 ],
+       [1    , 0   , 1   ],
+       [1    , 10  , 1   ]
+    ]
 
     new_3D_reco_basis = [ #k2v, kl, kv
-       [1  , 1   , 1  ],
-       [0  , 1   , 0.5],
-       [1  , 0   , 1  ],
-       [1  , 10  , 1  ],
-       [0.5, 1   , 1  ],
-       [4  , 1   , 1  ]
+        [1  , 1   , 1  ],
+        [0  , 1   , 0.5],
+        [1  , 0   , 1  ],
+        [1  , 10  , 1  ],
+        [0.5, 1   , 1  ],
+        [4  , 1   , 1  ]
     ]
-    get_amplitude_function( new_3D_reco_basis, output='tex' )
-    #print('\n\n\n-------------------------\n\n')
-    truth_basis = [
-          [1   ,   1  ,  1  ],
-          [1.5 ,   1  ,  1  ],
-          [2   ,   1  ,  1  ],
-          [1   ,   0  ,  1  ],
-          [1   ,   10 ,  1  ],
-          [1   ,   1  ,  1.5]
-          ]
-    #get_amplitude_function( truth_basis, output='ascii' )
 
-    #kl_basis_states = [
-    #    ('0  ' , '0 '  , '1  ' ),
-    #    ('1  ' , '0 '  , '1  ' ),
-    #    ('0  ' , '1 '  , '1  ' ),
-    #    ('0  ' , '1 '  , '0.5' ),
-    #    ('0.5' , '1 '  , '1  ' ),
-    #    ('1  ' , '1 '  , '0.5' ),
-    #    ('1  ' , '1 '  , '1  ' ),
-    #    ('1.5' , '1 '  , '1  ' ),
-    #    ('2  ' , '1 '  , '1  ' ),
-    #    ('4  ' , '1 '  , '1  ' ),
-    #    ('1  ' , '2 '  , '1  ' ),
-    #    ('1  ' , '10'  , '1  ' ),
-    #    ('1  ' , '11'  , '1.5' )
-    #]
-    #possible_existing_combinations = itertools.combinations(existing_states,6)
-    #total_possible = 0
-    #for combination in possible_existing_combinations:
-    #    total_possible += get_amplitude_function(str(combination), full_scan_terms, combination)
-    #print()
-    #print(total_possible)
+    orthogonality_metric(current_3D_reco_basis)
+    orthogonality_metric(new_3D_reco_basis)
 
-    #kl_basis = [
-    #    [1   ,   0  ,  1  ],
-    #    [1   ,   1  ,  1  ],
-    #    [1   ,   20 ,  1  ],
-    #]
-    #get_amplitude_function(kl_basis, base_equations=kl_scan_terms, output='tex', name='kl_test' )
-    #vector_function = get_amplitude_function(kl_basis, base_equations=kl_scan_terms, as_scalar=False)
-    #vector = vector_function(1,2,1)[0]
-    #print(vector)
-
-    #k2v_basis_states = [
-    #    ('1'  , '1', '1'  ),
-    #    ('0'  , '1', '1'  ),
-    #    ('2'  , '1', '1' )
-    #]
-    #get_amplitude_function(k2v_basis_states, base_equations=k2v_scan_terms, output='tex', name='alle_test' )
-
-    #kl_k2v_basis_states = [
-    #    ('1'  , '1', '1'  ),
-    #    ('-1'  , '0', '1' ),
-    #    ('0'  , '1', '1'  ),
-    #    ('3/2', '1', '1'  ),
-    #    ('1'  , '3/2', '1'  ),
-    #    ('1'  , '-1', '1' )
-    #]
-
-    #get_amplitude_function('all', full_scan_terms, full_basis_states)
-    #print('\n\n\n')
-    #get_amplitude_function('kl', kl_equation_list, kl_basis_states)
-    #print('\n\n\n')
-    #get_amplitude_function('k2v', k2v_equation_list, k2v_basis_states)
-    #get_amplitude_function('kl_k2v', kl_k2v_equation_list, kl_k2v_basis_states)
-   #get_theory_xsec_function()
 
 
 if __name__ == '__main__': main()

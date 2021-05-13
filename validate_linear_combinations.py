@@ -9,7 +9,7 @@ from matplotlib import pyplot as plt
 
 from fileio_utils import read_coupling_file, get_events, retrieve_reco_weights
 from combination_utils import get_amplitude_function
-from combination_utils import basis_full3D_max as _reco_basis 
+from combination_utils import basis_full3D_old_minN as _reco_basis 
 from reweight_utils import reco_reweight
 
 def plot_histogram(hist_name, hist_title, edge_list, coupling_parameters,
@@ -88,7 +88,7 @@ def plot_histogram(hist_name, hist_title, edge_list, coupling_parameters,
     kappa_string_list = [ label.replace('.','p') for label in kappa_labels ]
     kappa_string = 'cvv'+kappa_string_list[0]+'cl'+kappa_string_list[1]+'cv'+kappa_string_list[2]
     fig.tight_layout()
-    fig.savefig('plots/validation/'+hist_name+'_'+kappa_string+'.png', dpi=dpi)
+    fig.savefig('plots/validation/'+hist_name+'_'+kappa_string+'.pdf', dpi=dpi)
     plt.close()
 
 
