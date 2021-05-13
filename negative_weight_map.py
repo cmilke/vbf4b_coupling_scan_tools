@@ -16,7 +16,7 @@ from reweight_utils import reco_reweight
 
 
 def get_Nweight_sum(couplings, weights, kv_val, k2v_val_range, kl_val_range, grid=False):
-    numpy.set_printoptions(threshold=sys.maxsize, linewidth=230, precision=0, floatmode='fixed', suppress=True)
+    #numpy.set_printoptions(threshold=sys.maxsize, linewidth=230, precision=0, floatmode='fixed', suppress=True)
     reweight_vector_function = get_amplitude_function(couplings, as_scalar=False)
     k2v_grid, kl_grid = numpy.meshgrid(k2v_val_range, kl_val_range)
     multiplier_grid_vector = reweight_vector_function(k2v_grid, kl_grid, kv_val)[0]

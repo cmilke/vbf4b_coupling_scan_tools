@@ -31,21 +31,6 @@ def metric_reco_effective_stats_integral(couplings, events_list, kv_val, k2v_val
 def metric_orthogonality(couplings):
     return orthogonality_metric(couplings)
 
-def metric_reco_solidarity_integral(couplings, weights, errors, kv_val, k2v_val_range, kl_val_range):
-    grid_pixel_area = (k2v_val_range[1] - k2v_val_range[0]) * (kl_val_range[1] - kl_val_range[0])
-    contribution_grid = get_reco_solidarity_map(couplings, weights, errors, kv_val, k2v_val_range, kl_val_range)
-    grid_integral = numpy.sum( contribution_grid * grid_pixel_area )
-    #return math.log(grid_integral)
-    return grid_integral
-
-def metric_theory_solidarity_integral(couplings, kv_val, k2v_val_range, kl_val_range):
-    grid_pixel_area = (k2v_val_range[1] - k2v_val_range[0]) * (kl_val_range[1] - kl_val_range[0])
-    solidarity_grid = get_theoretical_solidarity_map(couplings, kv_val, k2v_val_range, kl_val_range)
-    grid_integral = numpy.sum( solidarity_grid * grid_pixel_area )
-    #return math.log(grid_integral)
-    #return 1 / grid_integral
-    return grid_integral
-
 def metric_theory_effective_stats_integral(couplings, kv_val, k2v_val_range, kl_val_range):
     grid_pixel_area = (k2v_val_range[1] - k2v_val_range[0]) * (kl_val_range[1] - kl_val_range[0])
     contribution_grid = get_theory_effective_stats_map(couplings, kv_val, k2v_val_range, kl_val_range)
@@ -126,9 +111,9 @@ def metric_eventCount_sum(events_list):
 def generate_metric_values():
     var_edges = numpy.linspace(200, 1200, 31)
     kv_val = 1.0
-    num_bins = 21
-    k2v_val_range = numpy.linspace(-2,4,num_bins)
-    kl_val_range = numpy.linspace(-14,16,num_bins)
+    num_bins = 100
+    k2v_val_range = numpy.linspace(-2,4,num_bins+1)
+    kl_val_range = numpy.linspace(-14,16,num_bins+1)
 
     data_files = read_coupling_file('basis_files/nnt_coupling_file.dat')
     all_cutflows = get_combined_cutflow_values(data_files.keys(), data_files).values() # It's a really good things that python dicts are ordered...
@@ -149,22 +134,22 @@ def generate_metric_values():
         weights, errors = numpy.array( list(zip(*histograms)) )
 
         basis_metrics[couplings] = {
-            'Nweight_integral': get_Nweight_sum(couplings, weights, errors, kv_val, k2v_val_range, kl_val_range),
+            'Nweight_integral': get_Nweight_sum(couplings, weights, kv_val, k2v_val_range, kl_val_range),
             #'orthogonality': metric_orthogonality(couplings),
-            'reco_effective_stats_integral': metric_reco_effective_stats_integral(couplings, events_list, kv_val, k2v_val_range, kl_val_range),
-            'theory_effective_stats_integral': metric_theory_effective_stats_integral(couplings, kv_val, k2v_val_range, kl_val_range),
-            'reco_solidarity_integral': metric_reco_solidarity_integral(couplings, weights, errors, kv_val, k2v_val_range, kl_val_range),
-            'theory_solidarity_integral': metric_theory_solidarity_integral(couplings, kv_val, k2v_val_range, kl_val_range),
+            #'reco_effective_stats_integral': metric_reco_effective_stats_integral(couplings, events_list, kv_val, k2v_val_range, kl_val_range),
+            #'theory_effective_stats_integral': metric_theory_effective_stats_integral(couplings, kv_val, k2v_val_range, kl_val_range),
+            'reco_solidarity_integral': get_reco_solidarity_map(couplings, weights, kv_val, k2v_val_range, kl_val_range),
+            'theory_solidarity_integral': get_theoretical_solidarity_map(couplings, kv_val, k2v_val_range, kl_val_range),
             #'theory_test_val': metric_theory_test_val(couplings),
-            'contribution_integral': metric_contribution_integral(couplings, kv_val, k2v_val_range, kl_val_range),
+            #'contribution_integral': metric_contribution_integral(couplings, kv_val, k2v_val_range, kl_val_range),
             #'accXeff_list': metric_accXeff_list(cutflows),
-            'accXeff_sum': metric_accXeff_sum(cutflows),
-            'accXeff_geometric': metric_accXeff_geometric_mean(cutflows),
+            #'accXeff_sum': metric_accXeff_sum(cutflows),
+            #'accXeff_geometric': metric_accXeff_geometric_mean(cutflows),
             #'accXeff_rms': metric_accXeff_rms(cutflows),
             #'accXeff_avg_stdev': metric_accXeff_avg_stdev(cutflows),
             #'accXeff_min': metric_accXeff_min(cutflows),
-            'accXeff_sigma': metric_accXeff_sigma(cutflows),
-            'accXeff_harmonic': metric_accXeff_harmonic_mean(cutflows),
+            #'accXeff_sigma': metric_accXeff_sigma(cutflows),
+            #'accXeff_harmonic': metric_accXeff_harmonic_mean(cutflows),
             #'eventCount_sum': metric_eventCount_sum(events_list)
         }
 

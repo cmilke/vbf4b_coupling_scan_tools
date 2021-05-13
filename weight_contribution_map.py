@@ -36,40 +36,43 @@ def get_variance_count_map(couplings, kv_val, k2v_val_range, kl_val_range):
     return weight_contribution_grid
 
 
-def get_theoretical_solidarity_map(couplings, kv_val, k2v_val_range, kl_val_range):
-    reweight_vector = get_amplitude_function(couplings, as_scalar=False)
+def get_theoretical_solidarity_map(couplings, kv_val, k2v_val_range, kl_val_range, grid=False):
+    #numpy.set_printoptions(threshold=sys.maxsize, linewidth=230, precision=0, floatmode='fixed', suppress=True)
     theory_xsec_function = get_theory_xsec_function()
-    xsec_vector = [ theory_xsec_function(c) for c in couplings ]
-    solidarity_grid = numpy.zeros( (len(k2v_val_range),len(kl_val_range)) )
+    xsec_list = [ theory_xsec_function(c) for c in couplings ]
+    reweight_vector_function = get_amplitude_function(couplings, as_scalar=False)
 
-    for k2v_i, k2v_val in enumerate(k2v_val_range):
-        for kl_j, kl_val in enumerate(kl_val_range):
-            coupling_parameters = (k2v_val, kl_val, kv_val)
-            vector = reweight_vector(*coupling_parameters)[0]
-            weighted_xsec = xsec_vector * vector
-            absolute_stdev = statistics.pstdev(abs(weighted_xsec))
-            solidarity_value = weighted_xsec.sum() / absolute_stdev
-            solidarity_grid[k2v_i][kl_j] = solidarity_value
-    return solidarity_grid
+    k2v_grid, kl_grid = numpy.meshgrid(k2v_val_range, kl_val_range)
+    multiplier_grid_vector = reweight_vector_function(k2v_grid, kl_grid, kv_val)[0]
+    scaled_xsecs = numpy.array([ multiplier_grid*xsec for multiplier_grid, xsec in zip(multiplier_grid_vector, xsec_list) ])
+    abs_stdev = abs(scaled_xsecs).std(axis=0)
+    combined_xsecs = scaled_xsecs.sum(axis=0)
+    solidarity_grid = combined_xsecs / abs_stdev
+    if grid:
+        return solidarity_grid
+    else:
+        grid_pixel_area = (k2v_val_range[1] - k2v_val_range[0]) * (kl_val_range[1] - kl_val_range[0])
+        solidarity_integral = solidarity_grid.sum() * grid_pixel_area
+        return solidarity_integral
 
 
-def get_reco_solidarity_map(couplings, weights, errors, kv_val, k2v_val_range, kl_val_range):
-    reweight_vector = get_amplitude_function(couplings, as_scalar=False)
-    xsec_vector = [ w.sum() for w in weights ]
-    weight_contribution_grid = numpy.zeros( (len(k2v_val_range),len(kl_val_range)) )
+def get_reco_solidarity_map(couplings, weights, kv_val, k2v_val_range, kl_val_range, grid=False):
+    xsec_list = [ w.sum() for w in weights ]
+    reweight_vector_function = get_amplitude_function(couplings, as_scalar=False)
 
-    for k2v_i, k2v_val in enumerate(k2v_val_range):
-        for kl_j, kl_val in enumerate(kl_val_range):
-            coupling_parameters = (k2v_val, kl_val, kv_val)
-            vector = reweight_vector(*coupling_parameters)[0]
-            weighted_xsec = xsec_vector * vector
-            abs_norm_vector = abs( weighted_xsec/weighted_xsec.sum() )
-            contribution = statistics.stdev(abs_norm_vector)
-            weight_contribution_grid[k2v_i][kl_j] = 1/contribution
+    k2v_grid, kl_grid = numpy.meshgrid(k2v_val_range, kl_val_range)
+    multiplier_grid_vector = reweight_vector_function(k2v_grid, kl_grid, kv_val)[0]
+    scaled_xsecs = numpy.array([ multiplier_grid*xsec for multiplier_grid, xsec in zip(multiplier_grid_vector, xsec_list) ])
+    abs_stdev = abs(scaled_xsecs).std(axis=0)
+    combined_xsecs = scaled_xsecs.sum(axis=0)
+    solidarity_grid = combined_xsecs / abs_stdev
+    if grid:
+        return solidarity_grid
+    else:
+        grid_pixel_area = (k2v_val_range[1] - k2v_val_range[0]) * (kl_val_range[1] - kl_val_range[0])
+        solidarity_integral = solidarity_grid.sum() * grid_pixel_area
+        return solidarity_integral
 
-            #contribution = sum(weighted_xsec)**2 / sum(weighted_xsec**2)
-            #weight_contribution_grid[k2v_i][kl_j] = math.sqrt(contribution)
-    return weight_contribution_grid
 
 def get_theory_effective_stats_map(couplings, kv_val, k2v_val_range, kl_val_range):
     reweight_vector = get_amplitude_function(couplings, as_scalar=False)
@@ -124,7 +127,7 @@ def nice_coupling_string(coupling):
 
 
 def draw_contribution_map(basis_parameters, kv_val, k2v_val_range, kl_val_range, weight_contribution_grid,
-            name_suffix='', title_suffix=None, vmin=None, vmax=None):
+            name_suffix='', title_suffix=None, vmin=None, vmax=None, transpose = False):
     ranges = k2v_val_range[0], k2v_val_range[-1], kl_val_range[0], kl_val_range[-1]
     vartitle = '$m_{HH}$'
     plottable_couplings = [ [[],[],m] for m in ['v','o','^'] ]
@@ -140,7 +143,8 @@ def draw_contribution_map(basis_parameters, kv_val, k2v_val_range, kl_val_range,
     #cmap = 'cool'
     #cmap = 'RdYlBu'
     fig, ax = plt.subplots()
-    im = ax.imshow(weight_contribution_grid.transpose(), extent=ranges, origin='lower', cmap=cmap, vmin=vmin, vmax=vmax)
+    if transpose: weight_contribution_grid = weight_contribution_grid.transpose()
+    im = ax.imshow(weight_contribution_grid, extent=ranges, origin='lower', cmap=cmap, vmin=vmin, vmax=vmax)
     #im = ax.imshow(weight_contribution_grid.transpose(), extent=ranges, origin='lower', cmap=cmap, norm=matplotlib.colors.LogNorm(vmin,vmax) )
     ax.set_xticks(ticks = numpy.arange(ranges[0],ranges[1]+1,1))
     ax.set_yticks(ticks = numpy.linspace(ranges[2],ranges[3],7))
