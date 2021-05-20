@@ -40,14 +40,21 @@ def extract_lhe_truth_data(file_list, mHH_edges, normalize=False):
 
 
 
-def extract_ntuple_events(ntuple, key=None, unit_conversion=None, tree_name=b'sig', filter_vbf=True, lumi_weight=True):
+#FIXME: Need to account for VBF_sel cut along with others ( )
+def extract_ntuple_events(ntuple, key=None, unit_conversion=None, tree_name=b'sig_highPtcat', filter_vbf=True, lumi_weight=True):
     ttree = uproot.rootio.open(ntuple)[tree_name]
     branches = [key,'mc_sf']
-    if filter_vbf: branches.append('pass_vbf_sel')
+    if filter_vbf:
+        branches.append('pass_vbf_sel')
+        branches.append('X_wt_tag')
+        branches.append('ntag')
     if lumi_weight: branches.append('run_number')
 
     frame = ttree.pandas.df(branches=branches)
-    if filter_vbf: frame = frame[ frame['pass_vbf_sel'] ]
+    if filter_vbf:
+        frame = frame[ frame['pass_vbf_sel'] ]
+        frame = frame[ frame['X_wt_tag' > 1.5] ]
+        frame = frame[ frame['ntag' >= 4] ]
 
     unit_conversion = 1
     if key == 'truth_mhh': unit_conversion = 1/1000
@@ -91,11 +98,12 @@ def get_cutflow_values(filename, hist_name='FourTagCutflow'):
     return labeled_values
 
 
+#FIXME: you can't just use the cutflow anymore because there are too many post nnt cuts
 def get_combined_cutflow_values(parameter_list, data_files):
     combined_cutflows = {}
     for couplings in parameter_list:
         for f in data_files[couplings]:
-            frame = uproot.rootio.open(f)[b'sig'].pandas.df(branches=['run_number'])
+            frame = uproot.rootio.open(f)[b'sig_highPtcat'].pandas.df(branches=['run_number'])
             run_number = frame['run_number'].values[0]
             lumi_weight = None
             if   run_number < 296939: lumi_weight = 3.2 # MC2015

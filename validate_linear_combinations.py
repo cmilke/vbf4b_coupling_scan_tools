@@ -9,7 +9,8 @@ from matplotlib import pyplot as plt
 
 from fileio_utils import read_coupling_file, get_events, retrieve_reco_weights
 from combination_utils import get_amplitude_function
-from combination_utils import basis_full3D_old_minN as _reco_basis 
+#from combination_utils import basis_full3D_old_minN as _reco_basis 
+from combination_utils import basis_full3D_2021May_minN as _reco_basis 
 from reweight_utils import reco_reweight
 
 def plot_histogram(hist_name, hist_title, edge_list, coupling_parameters,
@@ -88,7 +89,7 @@ def plot_histogram(hist_name, hist_title, edge_list, coupling_parameters,
     kappa_string_list = [ label.replace('.','p') for label in kappa_labels ]
     kappa_string = 'cvv'+kappa_string_list[0]+'cl'+kappa_string_list[1]+'cv'+kappa_string_list[2]
     fig.tight_layout()
-    fig.savefig('plots/validation/'+hist_name+'_'+kappa_string+'.pdf', dpi=dpi)
+    fig.savefig('plots/validation/'+hist_name+'_'+kappa_string+'.png', dpi=dpi)
     plt.close()
 
 
@@ -131,7 +132,7 @@ def validate_reco_method(basis_parameters, verification_parameters):
         verification_weights, verification_errors = retrieve_reco_weights(var_edges, verification_events)
         combined_weights, combined_errors = reco_reweight(reweight_vector, coupling_parameters, base_weights, base_errors)
 
-        plot_histogram('reco_mHH', 'NNT-Based Linear Combination:\n$m_{HH}$', var_edges, coupling_parameters,
+        plot_histogram('reco_mHH_new', 'New NNT-Based Linear Combination:\n$m_{HH}$', var_edges, coupling_parameters,
                  combined_weights, combined_errors,
                  verification_weights, verification_errors,
                  xlabel='Reconstructed $m_{HH}$ (GeV)'
@@ -148,13 +149,18 @@ def main():
     args = parser.parse_args()
 
     verification_parameters = [ #k2v, kl, kv
-        ( 1    ,  1   , 1 ),
-        ( 2    ,  1   , 1 ),
-        ( 0    ,  1   , 1 ),
-        ( 0.5  ,  1   , 1 ),
-        ( 4    ,  1   , 1 ),
-        ( 1    ,  2   , 1 ),
-        ( 1    ,  10  , 1 )
+        (1    ,  1  , 1   ),
+        (0    ,  1  , 1   ),
+        (0.5  ,  1  , 1   ),
+        (1.5  ,  1  , 1   ),
+        (2    ,  1  , 1   ),
+        (3    ,  1  , 1   ),
+        (1    ,  0  , 1   ),
+        (1    ,  2  , 1   ),
+        (1    ,  10 , 1   ),
+        (1    ,  1  , 0.5 ),
+        (1    ,  1  , 1.5 ),
+        (0    ,  0  , 1   )
     ]
 
 

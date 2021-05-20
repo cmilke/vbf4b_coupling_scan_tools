@@ -11,7 +11,7 @@ from matplotlib import pyplot as plt
 
 from fileio_utils import read_coupling_file, get_events, retrieve_reco_weights
 from combination_utils import get_amplitude_function
-from combination_utils import basis_full3D_max as _reco_basis 
+from combination_utils import basis_full3D_2021May_minN as _reco_basis 
 from reweight_utils import reco_reweight
 
 
@@ -119,16 +119,16 @@ def single_reco_negative_weight_map(basis_parameters):
     k2v_val_range = numpy.linspace(-1,3,101)
     kl_val_range = numpy.linspace(-14,16,101)
 
-    data_files = read_coupling_file('basis_files/nnt_coupling_file.dat')
+    data_files = read_coupling_file('basis_files/nnt_coupling_file_2021May.dat')
     base_events_list = get_events(basis_parameters, data_files)
     base_histograms = [ retrieve_reco_weights(var_edges, base_events) for base_events in base_events_list ]
     base_weights, base_errors = numpy.array(list(zip(*base_histograms)))
     #print(base_weights)
 
-    negative_weight_grid = get_Nweight_sum(basis_parameters, base_weights, base_errors, kv_val, k2v_val_range, kl_val_range, grid=True)
+    negative_weight_grid = get_Nweight_sum(basis_parameters, base_weights, kv_val, k2v_val_range, kl_val_range, grid=True)
 
     draw_error_map(basis_parameters, var_edges, kv_val, k2v_val_range, kl_val_range, negative_weight_grid, 
-                name_suffix='_mc16ade_old', title_suffix='MC16a/d/e')
+                name_suffix='_mc16ade', title_suffix='MC16a/d/e')
                 #name_suffix='_mc16d_old', vmax=12, title_suffix='MC16d Only')
                 #name_suffix='_mc16ad_old', vmax=12, title_suffix='MC16a and MC16d')
 

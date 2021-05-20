@@ -14,7 +14,8 @@ from fileio_utils import read_coupling_file, get_events, retrieve_reco_weights, 
 from combination_utils import is_valid_combination, orthogonality_metric, get_amplitude_function, get_theory_xsec_function
 import combination_utils
 #from combination_utils import basis_full3D_old_minN as _reco_basis 
-from combination_utils import basis_full3D_max as _reco_basis 
+#from combination_utils import basis_full3D_max as _reco_basis 
+from combination_utils import basis_full3D_2021May_minN as _reco_basis 
 from reweight_utils import reco_reweight
 from negative_weight_map import get_Nweight_sum
 from effective_stats_map import get_effective_stats_grid
@@ -26,7 +27,7 @@ def metric_reco_effective_stats_integral(couplings, events_list, kv_val, k2v_val
     grid_pixel_area = (k2v_val_range[1] - k2v_val_range[0]) * (kl_val_range[1] - kl_val_range[0])
     effective_stats_grid = get_effective_stats_grid(couplings, events_list, kv_val, k2v_val_range, kl_val_range)
     grid_integral = numpy.sum( effective_stats_grid * grid_pixel_area )
-    return 1/grid_integral
+    return grid_integral
 
 def metric_orthogonality(couplings):
     return orthogonality_metric(couplings)
@@ -35,9 +36,7 @@ def metric_theory_effective_stats_integral(couplings, kv_val, k2v_val_range, kl_
     grid_pixel_area = (k2v_val_range[1] - k2v_val_range[0]) * (kl_val_range[1] - kl_val_range[0])
     contribution_grid = get_theory_effective_stats_map(couplings, kv_val, k2v_val_range, kl_val_range)
     grid_integral = numpy.sum( contribution_grid * grid_pixel_area )
-    #return math.log(grid_integral)
-    return 1 / grid_integral
-    #return grid_integral
+    return grid_integral
 
 def metric_theory_test_val(couplings):
     inverse_vector = combination_utils.get_inversion_vector(couplings)
@@ -115,13 +114,17 @@ def generate_metric_values():
     k2v_val_range = numpy.linspace(-2,4,num_bins+1)
     kl_val_range = numpy.linspace(-14,16,num_bins+1)
 
-    data_files = read_coupling_file('basis_files/nnt_coupling_file.dat')
+    data_files = read_coupling_file('basis_files/nnt_coupling_file_2021May.dat')
     all_cutflows = get_combined_cutflow_values(data_files.keys(), data_files).values() # It's a really good things that python dicts are ordered...
     all_events = get_events(data_files.keys(), data_files)
     all_histograms = [ retrieve_reco_weights(var_edges,events) for events in all_events ]
     # Wrap all variations up together with their histograms so I can find combinations
     all_variations = list(zip(data_files.keys(), all_histograms, all_cutflows, all_events))#[:7]
     print('All variations loaded, proceeding to retrieve metrics...')
+    #for variation, cuts in zip(data_files.keys(), all_cutflows):
+    #    accXeff = cuts['Signal'] / cuts['Initial']
+    #    print(variation, accXeff)
+    #exit()
 
     total = 0
     basis_metrics = {}
@@ -192,7 +195,7 @@ def main():
         'theory_effective_stats_integral': ( 'Theoretical Effective Statistics Integral', ''),
         'theory_solidarity_integral': ( 'Theoretical Solidarity Integral', '' ),
         'contribution_integral': ( 'Contribution Count Integral', '' ),
-        'accXeff_sum': ( 'Acceptance X Efficiency Sum', '' ),
+        'accXeff_sum': ( 'Acceptance X Efficiency Sum', ' (X $10^{-5}$)' ),
         'accXeff_geometric': ( 'Acceptance X Efficiency Geometric Mean', '' ),
         'accXeff_min': ( 'Acceptance X Efficiency Minimum', '' ),
         'accXeff_rms': ( 'Acceptance X Efficiency RMS', '' ),
@@ -203,15 +206,15 @@ def main():
     }
 
     plot_list = [ (plot, 'Nweight_integral') for plot in plot_specs.keys() if plot != 'Nweight_integral' ]
-    plot_list += [ (plot, 'reco_effective_stats_integral') for plot in plot_specs.keys() if plot != 'reco_effective_stats_integral' ]
+    #plot_list += [ (plot, 'reco_effective_stats_integral') for plot in plot_specs.keys() if plot != 'reco_effective_stats_integral' ]
 
     dpi=500
     for x,y in plot_list:
         if not (x in metric_lists and y in metric_lists): continue
 
-        #xy_tuples = list(zip(metric_lists[x], metric_lists[y]))
-        #xvals, yvals = list(zip( *sorted(xy_tuples, reverse=True)[:10] ))
-        xvals, yvals = metric_lists[x], metric_lists[y]
+        xy_tuples = list(zip(metric_lists[x], metric_lists[y]))
+        xvals, yvals = list(zip( *sorted(xy_tuples, reverse=True)[:100] ))
+        #xvals, yvals = metric_lists[x], metric_lists[y]
         plt.scatter(xvals, yvals)
         plt.xlabel(plot_specs[x][0]+plot_specs[x][1])
         plt.ylabel(plot_specs[y][0]+plot_specs[y][1])

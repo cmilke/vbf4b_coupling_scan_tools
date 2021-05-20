@@ -85,8 +85,8 @@ def get_theory_effective_stats_map(couplings, kv_val, k2v_val_range, kl_val_rang
             coupling_parameters = (k2v_val, kl_val, kv_val)
             vector = reweight_vector(*coupling_parameters)[0]
             weighted_xsec = xsec_vector * vector
-            contribution = sum(weighted_xsec**2) / sum(weighted_xsec)**2 - 1/len(couplings)
-            weight_contribution_grid[k2v_i][kl_j] = contribution
+            effective_stats =  sum(weighted_xsec)**2 / sum(weighted_xsec**2)
+            weight_contribution_grid[k2v_i][kl_j] = effective_stats
     return weight_contribution_grid
 
 
@@ -127,7 +127,8 @@ def nice_coupling_string(coupling):
 
 
 def draw_contribution_map(basis_parameters, kv_val, k2v_val_range, kl_val_range, weight_contribution_grid,
-            name_suffix='', title_suffix=None, vmin=None, vmax=None, transpose = False):
+            name_suffix='', title_suffix=None, vmin=None, vmax=None, transpose = False,
+            title = 'Contribution of Weight to Combined Distribution'):
     ranges = k2v_val_range[0], k2v_val_range[-1], kl_val_range[0], kl_val_range[-1]
     vartitle = '$m_{HH}$'
     plottable_couplings = [ [[],[],m] for m in ['v','o','^'] ]
@@ -137,9 +138,9 @@ def draw_contribution_map(basis_parameters, kv_val, k2v_val_range, kl_val_range,
         plottable_couplings[index][0].append(k2v)
         plottable_couplings[index][1].append(kl)
 
-    #cmap = 'viridis'
+    cmap = 'viridis'
     #cmap = 'Paired'
-    cmap = 'plasma'
+    #cmap = 'plasma'
     #cmap = 'cool'
     #cmap = 'RdYlBu'
     fig, ax = plt.subplots()
@@ -156,7 +157,7 @@ def draw_contribution_map(basis_parameters, kv_val, k2v_val_range, kl_val_range,
 
     fig.subplots_adjust(right=0.85)
     cbar_ax = fig.add_axes([0.87, 0.11, 0.03, 0.7])
-    fig.colorbar(im, cax=cbar_ax, label='Maximum Contribution')
+    fig.colorbar(im, cax=cbar_ax, label=title)
     #fig.text(0.5, 0.04, '$\kappa_{2V}$', ha='center')
     #fig.text(0.04, 0.5, '$\kappa_{\lambda}$', va='center', rotation='vertical')
 
@@ -164,7 +165,7 @@ def draw_contribution_map(basis_parameters, kv_val, k2v_val_range, kl_val_range,
     for coupling in basis_parameters: basis_table += '\n'+nice_coupling_string(coupling)
     fig.text(.99, 1, basis_table, ha='right', va='top', fontsize='xx-small', family='monospace')
 
-    title = 'Contribution of Weight to Combined Distribution'
+    title+=' Heatmap'
     if type(title_suffix) != type(None): title += '\n'+title_suffix
     fig.suptitle(title, fontsize=10, fontweight='bold')
     #plt.show()
@@ -183,15 +184,16 @@ def single_weight_contribution_map(basis_parameters, name_suffix='', title_suffi
     k2v_val_range = numpy.linspace(-2,4,num_bins)
     kl_val_range = numpy.linspace(-14,16,num_bins)
 
-    weight_contribution_grid = get_theoretical_solidarity_map(basis_parameters, kv_val, k2v_val_range, kl_val_range)
+    weight_contribution_grid = get_theoretical_solidarity_map(basis_parameters, kv_val, k2v_val_range, kl_val_range, grid=True)
     #weight_contribution_grid = get_test_map(basis_parameters, kv_val, k2v_val_range, kl_val_range)
 
     grid_pixel_area = (k2v_val_range[1] - k2v_val_range[0]) * (kl_val_range[1] - kl_val_range[0])
     grid_integral = numpy.sum( weight_contribution_grid * grid_pixel_area )
     print(name_suffix, grid_integral)
 
+    title = 'Solidarity Value'
     draw_contribution_map(basis_parameters, kv_val, k2v_val_range, kl_val_range, weight_contribution_grid, 
-                name_suffix=name_suffix, title_suffix=title_suffix)
+                name_suffix=name_suffix, title=title, title_suffix=f'Integral = {int(grid_integral)}')
                 #name_suffix=name_suffix, title_suffix=title_suffix, vmin=.1, vmax=6)
                 #name_suffix=name_suffix, title_suffix=title_suffix, vmin=0, vmax=5)
                 #name_suffix=name_suffix, title_suffix=title_suffix, vmin=-5, vmax=0)
@@ -235,7 +237,7 @@ def main():
 
     single_weight_contribution_map(
         [ (1, 1, 1), (0, 1, 0.5), (1, 0, 1), (1, 10, 1), (0.5, 1, 1), (4, 1, 1) ],
-        name_suffix='rank01', title_suffix='Rank 1')
+        name_suffix='rank01', title_suffix='')
 
     single_weight_contribution_map(
         [ (1, 1, 1.1), (1, 1.1, 1), (1.1, 1, 1), (0.9, 1, 1.1), (1, 1.1, 0.9), (1.1, 0.9, 1) ],

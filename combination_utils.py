@@ -60,6 +60,15 @@ basis_full3D_old_minN = [
     (4, 1, 1)
 ]
 
+basis_full3D_2021May_minN = [
+    (1.0, 1.0, 1.0),
+    (0.5, 1.0, 1.0),
+    (3.0, 1.0, 1.0),
+    (1.0, 1.0, 0.5),
+    (1.0, 1.0, 1.5),
+    (0.0, 0.0, 1.0)
+]
+
 
 def is_valid_combination(basis_parameters, base_equations=full_scan_terms):
     basis_states = [ [ sympy.Rational(param) for param in basis ] for basis in basis_parameters ]

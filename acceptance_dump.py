@@ -28,7 +28,7 @@ def get_sorted_acceptances():
     k2v_val_range = numpy.linspace(-2,4,num_bins)
     kl_val_range = numpy.linspace(-14,16,num_bins)
 
-    data_files = fileio_utils.read_coupling_file('basis_files/nnt_coupling_file.dat')
+    data_files = fileio_utils.read_coupling_file('basis_files/nnt_coupling_file_2021May.dat')
     all_cutflows = fileio_utils.get_combined_cutflow_values(data_files.keys(), data_files).values() # It's a really good things that python dicts are ordered...
     all_events = fileio_utils.get_events(data_files.keys(), data_files)
     all_histograms = [ fileio_utils.retrieve_reco_weights(var_edges,events) for events in all_events ]
@@ -81,7 +81,7 @@ def main():
     ax.set_xticks(ticks = range(6))
     ax.set_yticks(ticks = range(len(acceptance_list)))
     ax.set_xlabel('Sample')
-    ax.set_ylabel('Nweight Rank')
+    ax.set_ylabel('Nweight Integral')
 
     x_param_labels = [ str(i) for i in range(1,7) ]
     x_param_ticks = numpy.array(range(6))
@@ -97,7 +97,7 @@ def main():
     ax.set_yticklabels('') # Clear major tick labels
     ax.set_yticklabels(y_param_labels, minor=True, fontsize=4)
 
-    ax.grid()
+    #ax.grid()
     ax.set_aspect('auto','box')
 
     fig.subplots_adjust(right=0.85)

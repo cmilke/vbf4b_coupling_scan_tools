@@ -40,7 +40,7 @@ def optimize_reco():
     kl_val_range = numpy.linspace(-14,16,num_kappa_bins+1)
     grid_pixel_area = (k2v_val_range[1] - k2v_val_range[0]) * (kl_val_range[1] - kl_val_range[0])
 
-    data_files = read_coupling_file('basis_files/nnt_coupling_file.dat')
+    data_files = read_coupling_file('basis_files/nnt_coupling_file_2021May.dat')
     all_events = get_events(data_files.keys(), data_files)
     all_histograms = [ retrieve_reco_weights(var_edges,events) for events in all_events ]
     # Wrap all variations up together with their histograms so I can find combinations
