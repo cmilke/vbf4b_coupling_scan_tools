@@ -168,11 +168,10 @@ def draw_contribution_map(basis_parameters, kv_val, k2v_val_range, kl_val_range,
     title+=' Heatmap'
     if type(title_suffix) != type(None): title += '\n'+title_suffix
     fig.suptitle(title, fontsize=10, fontweight='bold')
-    #plt.show()
     dpi = 500
-    plt.savefig('plots/error_maps/contribution_max'+name_suffix+'.png',dpi=dpi)
-    #output.savefig()
-    #plt.close()
+    figname = 'contribution_max'+name_suffix
+    plt.savefig('plots/error_maps/'+figname+'.png',dpi=dpi)
+    plt.savefig('plots/.error_maps/'+figname+'.pdf',dpi=dpi)
 
 
 

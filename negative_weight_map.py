@@ -9,15 +9,36 @@ from matplotlib import pyplot as plt
 
 #import pdb
 
-from fileio_utils import read_coupling_file, get_events, retrieve_reco_weights
-from combination_utils import get_amplitude_function
+import fileio_utils
+import combination_utils
 from combination_utils import basis_full3D_2021May_minN as _reco_basis 
 from reweight_utils import reco_reweight
 
 
+def get_Nweight_sum1D(couplings, weights, k2v_vals, kl_vals, kv_vals, vector=False, base_equations=None, which_coupling=None):
+    #numpy.set_printoptions(threshold=sys.maxsize, linewidth=230, precision=0, floatmode='fixed', suppress=True)
+    reweight_vector_function = combination_utils.get_amplitude_function(couplings, as_scalar=False, base_equations=base_equations)
+    multiplier_array_vector = reweight_vector_function(k2v_vals, kl_vals, kv_vals)[0]
+    combined_weights = sum([ multiplier_array[...,None] * w for multiplier_array, w in zip(multiplier_array_vector, weights) ])
+    negative_boolean_vector = combined_weights < 0
+    if vector:
+        print(negative_boolean_vector)
+        nWeight_totals = negative_boolean_vector.sum(axis=1)
+        print(nWeight_totals)
+        exit()
+        return nWeight_totals
+    else:
+        if which_coupling == 'k2v':
+            delta_variation = k2v_vals[1] - k2v_vals[0]
+        else:
+            delta_variation  = kl_vals[1] - kl_vals[0]
+        nWeight_integral = negative_boolean_vector.sum() * delta_variation
+        return nWeight_integral
+
+
 def get_Nweight_sum(couplings, weights, kv_val, k2v_val_range, kl_val_range, grid=False):
     #numpy.set_printoptions(threshold=sys.maxsize, linewidth=230, precision=0, floatmode='fixed', suppress=True)
-    reweight_vector_function = get_amplitude_function(couplings, as_scalar=False)
+    reweight_vector_function = combination_utils.get_amplitude_function(couplings, as_scalar=False)
     k2v_grid, kl_grid = numpy.meshgrid(k2v_val_range, kl_val_range)
     multiplier_grid_vector = reweight_vector_function(k2v_grid, kl_grid, kv_val)[0]
     combined_weights = sum([ multiplier_grid[...,None] * w for multiplier_grid, w in zip(multiplier_grid_vector, weights) ])
@@ -29,38 +50,6 @@ def get_Nweight_sum(couplings, weights, kv_val, k2v_val_range, kl_val_range, gri
         grid_pixel_area = (k2v_val_range[1] - k2v_val_range[0]) * (kl_val_range[1] - kl_val_range[0])
         nWeight_integral = negative_boolean_grid.sum() * grid_pixel_area
         return nWeight_integral
-
-
-# Depracated, use above
-def get_negative_weight_grid(couplings, weights, errors, kv_val, k2v_val_range, kl_val_range):
-    reweight_vector = get_amplitude_function(couplings, as_scalar=False)
-    negative_weight_grid = numpy.zeros( (len(k2v_val_range),len(kl_val_range)) )
-    for k2v_i, k2v_val in enumerate(k2v_val_range):
-        for kl_j, kl_val in enumerate(kl_val_range):
-            coupling_parameters = (k2v_val, kl_val, kv_val)
-            combined_weights, combined_errors = reco_reweight(reweight_vector, coupling_parameters, weights, errors)
-            num_negative = 0
-            #print(k2v_val, kl_val)
-            #print(combined_weights)
-            #print()
-            for i,w in enumerate(combined_weights):
-                if w < 0:
-                    num_negative += 1
-                    #print(k2v_val, kl_val, i)
-            negative_weight_grid[k2v_i][kl_j] = num_negative
-    return negative_weight_grid
-
-
-def nice_coupling_string(coupling):
-    str_list = []
-    for kappa in coupling:
-        if type(kappa) == int or kappa.is_integer():
-            str_list.append( f'{int(kappa): 3d}  ' )
-        else:
-            str_list.append( f'{kappa: 5.1f}' )
-    coupling_string = f'{str_list[0]}, {str_list[1]}, {str_list[2]}'
-    return coupling_string
-
 
 
 def draw_error_map(basis_parameters, var_edges, kv_val, k2v_val_range, kl_val_range, negative_weight_grid,
@@ -93,7 +82,7 @@ def draw_error_map(basis_parameters, var_edges, kv_val, k2v_val_range, kl_val_ra
     #fig.text(0.04, 0.5, '$\kappa_{\lambda}$', va='center', rotation='vertical')
 
     basis_table = '$\kappa_{2V}$  ,  $\kappa_{\lambda}$  ,  $\kappa_{V}$   '
-    for coupling in basis_parameters: basis_table += '\n'+nice_coupling_string(coupling)
+    for coupling in basis_parameters: basis_table += '\n'+combination_utils.nice_coupling_string(coupling)
     fig.text(.99, 1, basis_table, ha='right', va='top', fontsize='xx-small', family='monospace')
 
     range_title = f'{var_edges[0]:.0f}-{var_edges[-1]:.0f} in Bins of {var_edges[1]-var_edges[0]:.2f} GeV'
@@ -102,7 +91,9 @@ def draw_error_map(basis_parameters, var_edges, kv_val, k2v_val_range, kl_val_ra
     fig.suptitle(title, fontsize=10, fontweight='bold')
     #plt.show()
     dpi = 500
-    plt.savefig('plots/error_maps/negative_weights'+name_suffix+'.png',dpi=dpi)
+    figname = 'negative_weights'+name_suffix
+    plt.savefig('plots/error_maps/'+figname+'.png',dpi=dpi)
+    plt.savefig('plots/.error_maps/'+figname+'.pdf',dpi=dpi)
     #output.savefig()
     #plt.close()
 
@@ -119,9 +110,9 @@ def single_reco_negative_weight_map(basis_parameters):
     k2v_val_range = numpy.linspace(-1,3,101)
     kl_val_range = numpy.linspace(-14,16,101)
 
-    data_files = read_coupling_file('basis_files/nnt_coupling_file_2021May.dat')
-    base_events_list = get_events(basis_parameters, data_files)
-    base_histograms = [ retrieve_reco_weights(var_edges, base_events) for base_events in base_events_list ]
+    data_files = fileio_utils.read_coupling_file('basis_files/nnt_coupling_file_2021May.dat')
+    base_events_list = fileio_utils.get_events(basis_parameters, data_files)
+    base_histograms = [ fileio_utils.retrieve_reco_weights(var_edges, base_events) for base_events in base_events_list ]
     base_weights, base_errors = numpy.array(list(zip(*base_histograms)))
     #print(base_weights)
 

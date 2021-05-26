@@ -8,8 +8,8 @@ from matplotlib import pyplot as plt
 
 #import pdb
 
-from combination_utils import is_valid_combination
-from fileio_utils import read_coupling_file, get_events, retrieve_reco_weights
+import combination_utils
+import fileio_utils
 from negative_weight_map import get_Nweight_sum, draw_error_map
 
 
@@ -28,7 +28,7 @@ def draw_rankings(ranks_to_draw, valid_bases, var_edges, kv_val, k2v_val_range, 
         basis = valid_bases[rank]
         nWeight_grid = get_Nweight_sum(basis[1], basis[2], kv_val, k2v_val_range, kl_val_range, grid=True)
         draw_error_map(basis[1], var_edges, kv_val, k2v_val_range, kl_val_range, nWeight_grid, 
-                vmax = max_negative_weight, name_suffix=f'_{name_infix}rank{rank:03d}', 
+                vmax = max_negative_weight, name_suffix=f'_{name_infix}rank{int(rank)}', 
                 title_suffix=f'Rank {rank+1}/{len(valid_bases)}, Integral={int(basis[0])}')
 
 
@@ -40,9 +40,9 @@ def optimize_reco():
     kl_val_range = numpy.linspace(-14,16,num_kappa_bins+1)
     grid_pixel_area = (k2v_val_range[1] - k2v_val_range[0]) * (kl_val_range[1] - kl_val_range[0])
 
-    data_files = read_coupling_file('basis_files/nnt_coupling_file_2021May.dat')
-    all_events = get_events(data_files.keys(), data_files)
-    all_histograms = [ retrieve_reco_weights(var_edges,events) for events in all_events ]
+    data_files = fileio_utils.read_coupling_file(fileio_utils.coupling_file)
+    all_events = fileio_utils.get_events(data_files.keys(), data_files)
+    all_histograms = [ fileio_utils.retrieve_reco_weights(var_edges,events) for events in all_events ]
     # Wrap all variations up together with their histograms so I can find combinations
     all_variations = list(zip(data_files.keys(), all_histograms))
     print('Histograms loaded, proceeding to integrate Nweight grids...')
@@ -53,7 +53,7 @@ def optimize_reco():
         # Unwrap each combination
         couplings, histograms = list(zip(*basis_set))
         if (1.0,1.0,1.0) not in couplings: continue
-        if not is_valid_combination(couplings): continue
+        if not combination_utils.is_valid_combination(couplings): continue
 
         weights, errors = numpy.array( list(zip(*histograms)) )
         nWeight_integral = get_Nweight_sum(couplings, weights, kv_val, k2v_val_range, kl_val_range)
@@ -67,6 +67,7 @@ def optimize_reco():
     ranks_to_draw = 0, int(len(valid_bases)/2), 27#, len(valid_bases)-1
     draw_rankings(ranks_to_draw, valid_bases, var_edges, kv_val, k2v_val_range, kl_val_range, '')
     draw_rankings([0,1,2], valid_bases, var_edges, kv_val, k2v_val_range, kl_val_range, 'top')
+    combination_utils.get_amplitude_function(valid_bases[0][1], base_equations=combination_utils.full_scan_terms, name='optimal_3D', output='tex')
 
 
 

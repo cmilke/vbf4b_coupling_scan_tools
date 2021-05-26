@@ -1,7 +1,9 @@
 import math
 import numpy
-import uproot3 as uproot
-from uproot_methods import TLorentzVector as LV
+#import uproot3 as uproot
+import uproot
+
+coupling_file = 'basis_files/nnt_coupling_file_2021May_nonmin.dat'
 
 def extract_lhe_events(rootfile, key_list):
     ttree = uproot.rootio.open(rootfile)['tree']
@@ -40,38 +42,41 @@ def extract_lhe_truth_data(file_list, mHH_edges, normalize=False):
 
 
 
-#FIXME: Need to account for VBF_sel cut along with others ( )
-def extract_ntuple_events(ntuple, key=None, unit_conversion=None, tree_name=b'sig_highPtcat', filter_vbf=True, lumi_weight=True):
-    ttree = uproot.rootio.open(ntuple)[tree_name]
-    branches = [key,'mc_sf']
-    if filter_vbf:
-        branches.append('pass_vbf_sel')
-        branches.append('X_wt_tag')
-        branches.append('ntag')
-    if lumi_weight: branches.append('run_number')
+def extract_ntuple_events(ntuple, key=None, tree_name=None):
+    tree_name = 'sig_highPtcat'
+    #tree_name = 'sig'
 
-    frame = ttree.pandas.df(branches=branches)
-    if filter_vbf:
-        frame = frame[ frame['pass_vbf_sel'] ]
-        frame = frame[ frame['X_wt_tag' > 1.5] ]
-        frame = frame[ frame['ntag' >= 4] ]
+    rootfile = uproot.open(ntuple)
+    #DSID = rootfile['DSID']._members['fVal']
+    #nfiles = 1
+    #while( DSID / nfiles > 600050 ): nfiles += 1
+    #DSID = int(DSID / nfiles)
+    #print(ntuple, DSID)
+    ttree = rootfile[tree_name]
 
-    unit_conversion = 1
-    if key == 'truth_mhh': unit_conversion = 1/1000
-    vals  = frame[key].values * unit_conversion
-    weights = frame['mc_sf'].values
-    if lumi_weight:
-        run_number = frame['run_number']
-        mc2015 = run_number < 296939
-        mc2016 = numpy.logical_and(296939 < run_number, run_number < 320000)
-        mc2017 = numpy.logical_and(320000 < run_number, run_number < 350000)
-        mc2018 = numpy.logical_and(350000 < run_number, run_number < 370000)
-        weights[mc2015] *=  3.2
-        weights[mc2016] *= 24.6
-        weights[mc2017] *= 43.65
-        weights[mc2018] *= 58.45
+    if tree_name == 'sig':
+    #if True:
+        kinvals = ttree['m_hh'].array()
+        weights = ttree['mc_sf'].array()[:,0]
+        run_number = ttree['run_number'].array()
+    else: # Selections
+        pass_vbf_sel = ttree['pass_vbf_sel'].array()
+        x_wt_tag = ttree['X_wt_tag'].array() > 1.5
+        ntag = ttree['ntag'].array() >= 4
+        valid_event = numpy.logical_and.reduce( (pass_vbf_sel, x_wt_tag, ntag) )
 
-    events = numpy.array([vals,weights])
+        kinvals = ttree['m_hh'].array()[valid_event]
+        weights = ttree['mc_sf'].array()[:,0][valid_event]
+        run_number = ttree['run_number'].array()[valid_event]
+
+    mc2015 = ( run_number < 296939 ) * 3.2
+    mc2016 = ( numpy.logical_and(296939 < run_number, run_number < 320000) ) * 24.6
+    mc2017 = ( numpy.logical_and(320000 < run_number, run_number < 350000) ) * 43.65
+    mc2018 = ( numpy.logical_and(350000 < run_number, run_number < 370000) ) * 58.45
+    all_years = mc2015 + mc2016 + mc2017 + mc2018
+    lumi_weights = weights * all_years
+
+    events = numpy.array([kinvals,lumi_weights])
     return events
 
 
@@ -144,7 +149,7 @@ def get_events(parameter_list, data_files, reco=True):
     for couplings in parameter_list:
         new_events = []
         for f in data_files[couplings]:
-            new_events.append( extract_ntuple_events(f,key='m_hh',filter_vbf=False) )
+            new_events.append( extract_ntuple_events(f,key='m_hh') )
         events = numpy.concatenate(new_events, axis=1)
         events_list.append(events)
     return events_list

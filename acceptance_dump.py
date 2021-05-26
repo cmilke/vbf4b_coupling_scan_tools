@@ -107,7 +107,9 @@ def main():
     title  = 'Performance of Basis VS Acceptance of Constituent Samples'
     fig.suptitle(title, fontsize=10, fontweight='bold')
     dpi = 500
-    plt.savefig('plots/dump/Nweight_acceptance_dump.png',dpi=dpi)
+    figname = 'Nweight_acceptance_dump'
+    plt.savefig('plots/dump/'+figname+'.png',dpi=dpi)
+    plt.savefig('plots/.dump/'+figname+'.pdf',dpi=dpi)
 
 
 if __name__ == '__main__': main()

@@ -1,5 +1,4 @@
 import numpy
-from uproot_methods import TLorentzVector as LV
 
 import combination_utils
 

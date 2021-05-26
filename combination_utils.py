@@ -60,14 +60,20 @@ basis_full3D_old_minN = [
     (4, 1, 1)
 ]
 
-basis_full3D_2021May_minN = [
-    (1.0, 1.0, 1.0),
-    (0.5, 1.0, 1.0),
-    (3.0, 1.0, 1.0),
-    (1.0, 1.0, 0.5),
-    (1.0, 1.0, 1.5),
-    (0.0, 0.0, 1.0)
-]
+basis_full3D_2021May_minN = [ (1.0, 1.0, 1.0), (0.5, 1.0, 1.0), (1.5, 1.0, 1.0), (1.0, 2.0, 1.0), (1.0, 10.0, 1.0), (0.0, 0.0, 1.0) ]
+
+
+
+def nice_coupling_string(coupling):
+    str_list = []
+    for kappa in coupling:
+        if type(kappa) == int or kappa.is_integer():
+            str_list.append( f'{int(kappa): 3d}  ' )
+        else:
+            str_list.append( f'{kappa: 5.1f}' )
+    coupling_string = f'{str_list[0]}, {str_list[1]}, {str_list[2]}'
+    return coupling_string
+
 
 
 def is_valid_combination(basis_parameters, base_equations=full_scan_terms):
@@ -203,36 +209,6 @@ def get_inversion_vector(couplings):
     inversion_array = (xsec_vector * inversion.transpose()).transpose()
     #numpy.set_printoptions(formatter={'float':lambda n: f'{n: 4.2f}'})
     return inversion_array
-
-
-def plot_scan(name,title, title_suffix, reweight_linear_array,
-            bin_edges, xedges, yedges, weight_list, 
-            plotdir='', **kwargs):
-
-    flat_counts = weight_list.flatten(order='F')
-
-    fig,ax = plt.subplots()
-    counts, xbins, ybins, hist = plt.hist2d( *bin_edges, bins=(xedges,yedges)
-        , weights=flat_counts, **kwargs )
-    param_ticks = numpy.array(yedges)[:-1]+0.5
-    padded_params = list(reweight_linear_array)
-    param_labels = [ f'{c2v},{cl},{cv}' for (c2v,cl,cv) in padded_params ]
-    plt.xlabel('$m_{HH}$')
-    plt.ylabel('Basis')
-    #plt.yticks(ticks=param_ticks, labels=param_labels, fontsize=7, va='center_baseline')
-    #ax.yaxis.set_minor_locator(matplotlib.ticker.FixedLocator(param_ticks))
-    #ax.yaxis.set_minor_formatter(matplotlib.ticker.FixedFormatter(param_labels))
-    ax.set_yticklabels('')
-    ax.set_yticks(param_ticks-0.5)
-    ax.set_yticks(param_ticks, minor=True)
-    ax.set_yticklabels(param_labels, minor=True, fontsize=5)
-    plt.colorbar()
-    plt.grid(axis='y', which='major')
-    plt.title(title+' Coupling Distribution '+title_suffix)
-    plt.tight_layout()
-    fig.savefig('plots/'+plotdir+'coupling_scan_'+name+'.png',dpi=500)
-    plt.close()
-
 
 
 def plot_all_couplings(prefix, amplitude_function, basis_files, coupling_parameter_array, plotdir=''):

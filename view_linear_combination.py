@@ -7,7 +7,7 @@ from matplotlib import pyplot as plt
 
 #import pdb
 
-from fileio_utils import read_coupling_file, get_events, retrieve_reco_weights
+import fileio_utils
 from combination_utils import get_amplitude_function
 from combination_utils import basis_full3D_2021May_minN as _reco_basis 
 #from combination_utils import basis_full3D_old_minN as _reco_basis 
@@ -60,7 +60,9 @@ def plot_histogram(hist_name, hist_title, edge_list, coupling_parameters,
     kappa_string_list = [ label.replace('.','p') for label in kappa_labels ]
     kappa_string = 'cvv'+kappa_string_list[0]+'cl'+kappa_string_list[1]+'cv'+kappa_string_list[2]
     fig.tight_layout()
-    fig.savefig('plots/previews/'+hist_name+'_'+kappa_string+'.png', dpi=dpi)
+    figname = hist_name+'_'+kappa_string
+    fig.savefig('plots/previews/'+figname+'.png', dpi=dpi)
+    fig.savefig('plots/.previews/'+figname+'.pdf', dpi=dpi)
     plt.close()
 
 
@@ -69,9 +71,9 @@ def view_reco_method(basis_parameters, view_params):
     reweight_vector = get_amplitude_function(basis_parameters, as_scalar=False)
     var_edges = numpy.linspace(200, 1200, 31)
 
-    data_files = read_coupling_file('basis_files/nnt_coupling_file_2021May.dat')
-    base_events_list = get_events(basis_parameters, data_files)
-    base_histograms = [ retrieve_reco_weights(var_edges, base_events) for base_events in base_events_list ]
+    data_files = fileio_utils.read_coupling_file(fileio_utils.coupling_file)
+    base_events_list = fileio_utils.get_events(basis_parameters, data_files)
+    base_histograms = [ fileio_utils.retrieve_reco_weights(var_edges, base_events) for base_events in base_events_list ]
     base_weights, base_errors = numpy.array(list(zip(*base_histograms)))
 
     for coupling_parameters in view_params:
@@ -106,7 +108,10 @@ def main():
         ( 2    ,  10  , 1 ),
         ( 0.5  ,  13  , 1 ),
         ( 1.5  ,  -9  , 1 ),
-        ( 0    ,  -9  , 1 )
+        ( 0    ,  -9  , 1 ),
+        ( 0    ,   8  , 1 ),
+        ( 3    ,  -9  , 1 ),
+        ( 1    ,   11 , 1 )
     ]
 
 

@@ -94,7 +94,9 @@ def draw_stats_map(basis_parameters, var_edges, kv_val, k2v_val_range, kl_val_ra
     fig.suptitle(title, fontsize=10, fontweight='bold')
     #plt.show()
     dpi = 500
-    plt.savefig('plots/error_maps/effective_stats'+name_suffix+'.png',dpi=dpi)
+    figname = 'effective_stats'+name_suffix
+    plt.savefig('plots/error_maps/'+figname+'.png',dpi=dpi)
+    plt.savefig('plots/.error_maps/'+figname+'.pdf',dpi=dpi)
     #output.savefig()
     #plt.close()
 

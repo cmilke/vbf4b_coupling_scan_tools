@@ -10,6 +10,7 @@ from matplotlib import pyplot as plt
 
 #import pdb
 
+import fileio_utils
 from fileio_utils import read_coupling_file, get_events, retrieve_reco_weights, get_combined_cutflow_values
 from combination_utils import is_valid_combination, orthogonality_metric, get_amplitude_function, get_theory_xsec_function
 import combination_utils
@@ -114,12 +115,13 @@ def generate_metric_values():
     k2v_val_range = numpy.linspace(-2,4,num_bins+1)
     kl_val_range = numpy.linspace(-14,16,num_bins+1)
 
-    data_files = read_coupling_file('basis_files/nnt_coupling_file_2021May.dat')
-    all_cutflows = get_combined_cutflow_values(data_files.keys(), data_files).values() # It's a really good things that python dicts are ordered...
+    data_files = read_coupling_file(fileio_utils.coupling_file)
+    #all_cutflows = get_combined_cutflow_values(data_files.keys(), data_files).values() # It's a really good things that python dicts are ordered...
     all_events = get_events(data_files.keys(), data_files)
     all_histograms = [ retrieve_reco_weights(var_edges,events) for events in all_events ]
     # Wrap all variations up together with their histograms so I can find combinations
-    all_variations = list(zip(data_files.keys(), all_histograms, all_cutflows, all_events))#[:7]
+    #all_variations = list(zip(data_files.keys(), all_histograms, all_cutflows, all_events))#[:7]
+    all_variations = list(zip(data_files.keys(), all_histograms, all_events, all_events))#[:7]
     print('All variations loaded, proceeding to retrieve metrics...')
     #for variation, cuts in zip(data_files.keys(), all_cutflows):
     #    accXeff = cuts['Signal'] / cuts['Initial']
@@ -212,14 +214,16 @@ def main():
     for x,y in plot_list:
         if not (x in metric_lists and y in metric_lists): continue
 
-        xy_tuples = list(zip(metric_lists[x], metric_lists[y]))
-        xvals, yvals = list(zip( *sorted(xy_tuples, reverse=True)[:100] ))
-        #xvals, yvals = metric_lists[x], metric_lists[y]
+        #xy_tuples = list(zip(metric_lists[x], metric_lists[y]))
+        #xvals, yvals = list(zip( *sorted(xy_tuples, reverse=True)[:100] ))
+        xvals, yvals = metric_lists[x], metric_lists[y]
         plt.scatter(xvals, yvals)
         plt.xlabel(plot_specs[x][0]+plot_specs[x][1])
         plt.ylabel(plot_specs[y][0]+plot_specs[y][1])
         plt.title(plot_specs[y][0]+'\nVS '+plot_specs[x][0])
-        plt.savefig('plots/metrics/'+y+'_VS_'+x+'.png', dpi=dpi)
+        figname = y+'_VS_'+x
+        plt.savefig('plots/metrics/'+figname+'.png', dpi=dpi)
+        plt.savefig('plots/.metrics/'+figname+'.pdf', dpi=dpi)
         plt.close()
 
 
