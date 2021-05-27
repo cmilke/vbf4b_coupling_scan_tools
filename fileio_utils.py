@@ -3,7 +3,7 @@ import numpy
 #import uproot3 as uproot
 import uproot
 
-coupling_file = 'basis_files/nnt_coupling_file_2021May_nonmin.dat'
+coupling_file = 'basis_files/nnt_coupling_file_2021May_crypto.dat'
 
 def extract_lhe_events(rootfile, key_list):
     ttree = uproot.rootio.open(rootfile)['tree']
@@ -43,8 +43,8 @@ def extract_lhe_truth_data(file_list, mHH_edges, normalize=False):
 
 
 def extract_ntuple_events(ntuple, key=None, tree_name=None):
-    tree_name = 'sig_highPtcat'
-    #tree_name = 'sig'
+    #tree_name = 'sig_highPtcat'
+    tree_name = 'sig'
 
     rootfile = uproot.open(ntuple)
     #DSID = rootfile['DSID']._members['fVal']
@@ -54,8 +54,9 @@ def extract_ntuple_events(ntuple, key=None, tree_name=None):
     #print(ntuple, DSID)
     ttree = rootfile[tree_name]
 
-    if tree_name == 'sig':
+    #if tree_name == 'sig':
     #if True:
+    if False:
         kinvals = ttree['m_hh'].array()
         weights = ttree['mc_sf'].array()[:,0]
         run_number = ttree['run_number'].array()

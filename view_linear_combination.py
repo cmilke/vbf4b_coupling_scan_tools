@@ -17,11 +17,13 @@ from reweight_utils import reco_reweight
 
 def plot_histogram(hist_name, hist_title, edge_list, coupling_parameters,
         linearly_combined_weights, linearly_combined_errors,
+        alt_linearly_combined_weights=None, alt_linearly_combined_errors=None, alt_label='Alt',
         range_specs=None, xlabel='Truth $m_{HH}$ (GeV)', normalize=False,
         generated_label='Linear Combination', generated_color='blue'):
 
     print('Plotting '+hist_name+' for ' + str(coupling_parameters))
     fig, ax = plt.subplots()
+    draw_alt_comb = type(alt_linearly_combined_weights) != type(None) and type(alt_linearly_combined_errors) != type(None)
 
     if type(range_specs) != type(None):
         linearly_combined_weights = linearly_combined_weights[range_specs[0]:range_specs[1]]
@@ -45,7 +47,13 @@ def plot_histogram(hist_name, hist_title, edge_list, coupling_parameters,
         yerr=linearly_combined_errors, label=generated_label,
         marker='+', markersize=2, capsize=2, color=generated_color, linestyle='none', linewidth=1, zorder=3)
 
-    kappa_labels = [ str(param) for param in coupling_parameters ]
+    if draw_alt_comb:
+        alt_counts, alt_bins, alt_points = ax.errorbar( xpositions, alt_linearly_combined_weights,
+            yerr=alt_linearly_combined_errors, label=alt_label,
+            marker='x', markersize=2, capsize=2, color='red', linestyle='none', linewidth=1, zorder=3)
+
+
+    kappa_labels = [ f'{param:.2f}' for param in coupling_parameters ]
     title  = hist_title+' for '
     title += '$\kappa_{2V}='+kappa_labels[0]+'$, '
     title += '$\kappa_{\lambda}='+kappa_labels[1]+'$, '
@@ -54,6 +62,7 @@ def plot_histogram(hist_name, hist_title, edge_list, coupling_parameters,
 
     ax.set(xlabel=xlabel)
     ax.set(ylabel='Bin Weight')
+    ax.legend(prop={'size':7})
     ax.grid()
 
     dpi=500

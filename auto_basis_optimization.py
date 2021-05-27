@@ -11,6 +11,7 @@ from matplotlib import pyplot as plt
 import combination_utils
 import fileio_utils
 from negative_weight_map import get_Nweight_sum, draw_error_map
+import validate_linear_combinations
 
 
 def draw_rankings(ranks_to_draw, valid_bases, var_edges, kv_val, k2v_val_range, kl_val_range, name_infix):
@@ -30,6 +31,19 @@ def draw_rankings(ranks_to_draw, valid_bases, var_edges, kv_val, k2v_val_range, 
         draw_error_map(basis[1], var_edges, kv_val, k2v_val_range, kl_val_range, nWeight_grid, 
                 vmax = max_negative_weight, name_suffix=f'_{name_infix}rank{int(rank)}', 
                 title_suffix=f'Rank {rank+1}/{len(valid_bases)}, Integral={int(basis[0])}')
+    comp_couplings = [ valid_bases[ranks_to_draw[0]][1], valid_bases[ranks_to_draw[1]][1] ]
+    num_kappa_bins = 3
+    data_files = fileio_utils.read_coupling_file(fileio_utils.coupling_file)
+    validate_linear_combinations.compare_bases_reco_method(comp_couplings, list(data_files.keys()),
+         name_suffix=f'_auto_{name_infix}_3D_{ranks_to_draw[0]}-{ranks_to_draw[1]}', labels=(f'Rank {ranks_to_draw[0]}', f'Rank {ranks_to_draw[1]}') )
+    k2v_vals = [-1.5, 0.5, 2, 3.5]
+    kl_vals = [-9, -3, 5, 14]
+    preview_couplings = []
+    for k2v in k2v_vals:
+        for kl in kl_vals:
+            preview_couplings.append( (k2v, kl, 1) )
+    validate_linear_combinations.compare_bases_reco_method(comp_couplings, preview_couplings,
+         name_suffix='_preview_auto_'+name_infix+'_3D_'f'{ranks_to_draw[0]}-{ranks_to_draw[1]}', labels=(f'Rank {ranks_to_draw[0]}', f'Rank {ranks_to_draw[1]}'), is_verification=False)
 
 
 def optimize_reco():
@@ -65,9 +79,14 @@ def optimize_reco():
     for rank, (integral, couplings, weight) in enumerate(valid_bases): print(rank, int(integral), couplings)
 
     ranks_to_draw = 0, int(len(valid_bases)/2), 27#, len(valid_bases)-1
-    draw_rankings(ranks_to_draw, valid_bases, var_edges, kv_val, k2v_val_range, kl_val_range, '')
-    draw_rankings([0,1,2], valid_bases, var_edges, kv_val, k2v_val_range, kl_val_range, 'top')
-    combination_utils.get_amplitude_function(valid_bases[0][1], base_equations=combination_utils.full_scan_terms, name='optimal_3D', output='tex')
+    #draw_rankings(ranks_to_draw, valid_bases, var_edges, kv_val, k2v_val_range, kl_val_range, '')
+    draw_rankings([0,1], valid_bases, var_edges, kv_val, k2v_val_range, kl_val_range, 'top')
+    #draw_rankings([0,1], valid_bases, var_edges, kv_val, k2v_val_range, kl_val_range, 'alttop')
+    #draw_rankings([0,2], valid_bases, var_edges, kv_val, k2v_val_range, kl_val_range, 'alttop')
+    #draw_rankings([0,127], valid_bases, var_edges, kv_val, k2v_val_range, kl_val_range, 'badcomp')
+    #draw_rankings([0,220], valid_bases, var_edges, kv_val, k2v_val_range, kl_val_range, 'baddercomp')
+    combination_utils.get_amplitude_function(valid_bases[0][1], base_equations=combination_utils.full_scan_terms, name='optimal_3DR0', output='tex')
+    combination_utils.get_amplitude_function(valid_bases[1][1], base_equations=combination_utils.full_scan_terms, name='optimal_3DR1', output='tex')
 
 
 

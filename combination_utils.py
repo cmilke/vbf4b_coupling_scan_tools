@@ -1,5 +1,6 @@
 import sympy
 import numpy
+import re
 import itertools
 import os
 import matplotlib
@@ -154,12 +155,16 @@ def get_amplitude_function( basis_parameters, as_scalar=True, base_equations=ful
             #sympy.pprint(sympy.simplify( (inversion*amplitudes) * (amplitudes.T*inversion)))
             #sympy.pprint(final_amplitude)
         if output == 'tex':
-            substitutions = [ (a, f'Abs(A({i},{j},{k}))**2') for a, (i,j,k) in zip(amplitudes, basis_parameters) ]
-            print(substitutions)
-            print(final_amplitude)
+            substitutions = [ (a, r'sigma'f'({i},{j},{k})') for a, (i,j,k) in zip(amplitudes, basis_states) ]
+            #substitutions = [ (a, 'blah') for a, (i,j,k) in zip(amplitudes, basis_parameters) ]
             out_equation = final_amplitude.subs(substitutions)
             with open('final_amplitude_'+name+'.tex','w') as output:
-                output.write('$\n'+sympy.latex(out_equation)+'\n$\n')
+                formatted_equation = sympy.latex(out_equation)
+                formatted_equation = formatted_equation.replace(r'\sigma', r'\times \sigma')
+                formatted_equation = re.sub(r'(\\sigma\{\\left\([^,]*,[^,]*,[^\\]*\\right\)\} \+)', r'\1$\n\n$', formatted_equation)
+                formatted_equation = '$'+formatted_equation+'$\n'
+                print('\n'+formatted_equation)
+                output.write(formatted_equation)
 
         if type(preloaded_amplitudes) == type(None):
             amplitude_function = sympy.lambdify([_k2v, _kl, _kv]+[*amplitudes], final_amplitude, 'numpy')
