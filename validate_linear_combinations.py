@@ -66,8 +66,8 @@ def draw_1D_mhh_heatmap(couplings, weights, var_edges, k2v_vals, kl_vals, kv_val
     fig.suptitle(title, fontsize=10, fontweight='bold')
     dpi = 500
     figname = filename
-    plt.savefig('plots/scan_maps/'+figname+'.png',dpi=dpi)
-    plt.savefig('plots/.scan_maps/'+figname+'.pdf',dpi=dpi)
+    #plt.savefig('plots/scan_maps/'+figname+'.png',dpi=dpi)
+    plt.savefig('plots/scan_maps/'+figname+'.pdf',dpi=dpi)
 
 
 
@@ -145,8 +145,8 @@ def plot_histogram(hist_name, hist_title, edge_list, coupling_parameters,
     fig.tight_layout()
     figname = hist_name+'_'+kappa_string
     savedir = 'validation' if draw_verify else 'previews'
-    fig.savefig('plots/'+savedir+'/'+figname+'.png', dpi=dpi)
-    fig.savefig('plots/.'+savedir+'/'+figname+'.pdf', dpi=dpi)
+    #fig.savefig('plots/'+savedir+'/'+figname+'.png', dpi=dpi)
+    fig.savefig('plots/'+savedir+'/'+figname+'.pdf', dpi=dpi)
     plt.close()
 
 
@@ -154,7 +154,7 @@ def plot_histogram(hist_name, hist_title, edge_list, coupling_parameters,
 def generate_1D_pojection_scans(basis_parameters):
     #var_edges = numpy.linspace(200, 1200, 31)
     var_edges = numpy.linspace(200, 2000, 55)
-    data_files = fileio_utils.read_coupling_file(fileio_utils.coupling_file)
+    data_files = fileio_utils.read_coupling_file()
     base_events_list = fileio_utils.get_events(basis_parameters, data_files)
     base_histograms = [ fileio_utils.retrieve_reco_weights(var_edges, base_events) for base_events in base_events_list ]
     base_weights, base_errors = numpy.array(list(zip(*base_histograms)))
@@ -181,7 +181,7 @@ def generate_1D_pojection_scans(basis_parameters):
 def generate_1D9S_pojection_scans(k2v_9S_basis_tuple, vmin, vmax):
     var_edges = numpy.linspace(200, 1200, 31)
     #var_edges = numpy.linspace(200, 2000, 55)
-    data_files = fileio_utils.read_coupling_file(fileio_utils.coupling_file)
+    data_files = fileio_utils.read_coupling_file()
 
     numpy.set_printoptions(threshold=sys.maxsize, linewidth=230, precision=1, floatmode='fixed', suppress=True)
 
@@ -238,8 +238,8 @@ def generate_1D9S_pojection_scans(k2v_9S_basis_tuple, vmin, vmax):
     fig.suptitle(title, fontsize=10, fontweight='bold')
     dpi = 500
     figname = 'c2v_9S_projection'
-    plt.savefig('plots/scan_maps/'+figname+'.png',dpi=dpi)
-    plt.savefig('plots/.scan_maps/'+figname+'.pdf',dpi=dpi)
+    #plt.savefig('plots/scan_maps/'+figname+'.png',dpi=dpi)
+    plt.savefig('plots/scan_maps/'+figname+'.pdf',dpi=dpi)
 
 
 
@@ -255,7 +255,7 @@ def compare1D3S9S_reco_method(k2v_3S_basis_parameters, k2v_9S_basis_tuple):
     k2v_vals = numpy.linspace(-2,4,num_kappa_bins+1)
     k2v_vals_alt = numpy.linspace(-2,4,100+1)
 
-    data_files = fileio_utils.read_coupling_file(fileio_utils.coupling_file)
+    data_files = fileio_utils.read_coupling_file()
     k2v_3S_reweight_vector = get_amplitude_function(k2v_3S_basis_parameters, as_scalar=False, base_equations=combination_utils.k2v_scan_terms)
     k2v_3S_base_events_list = fileio_utils.get_events(k2v_3S_basis_parameters, data_files)
     k2v_3S_base_histograms = [ fileio_utils.retrieve_reco_weights(var_edges, base_events) for base_events in k2v_3S_base_events_list ]
@@ -311,7 +311,7 @@ def compare12_reco_method(basis_parameters, k2v_basis_parameters, kl_basis_param
     var_edges = numpy.linspace(200, 2000, 55)
     #var_edges = numpy.arange(0, 2050, 50)
 
-    data_files = fileio_utils.read_coupling_file(fileio_utils.coupling_file)
+    data_files = fileio_utils.read_coupling_file()
     base_events_list = fileio_utils.get_events(basis_parameters, data_files)
     k2v_base_events_list = fileio_utils.get_events(k2v_basis_parameters, data_files)
     kl_base_events_list = fileio_utils.get_events(kl_basis_parameters, data_files)
@@ -352,32 +352,45 @@ def compare12_reco_method(basis_parameters, k2v_basis_parameters, kl_basis_param
 
 
 def compare_bases_reco_method(basis_parameters_list, verification_parameters,
-        base_equations=combination_utils.full_scan_terms, name_suffix='', title_suffix='', labels=('',''), is_verification=True):
+        base_equations=combination_utils.full_scan_terms, name_suffix='', title_suffix='',
+        labels=('',''), is_verification=True, truth_level=False, truth_data_files=None):
 
     #var_edges = numpy.linspace(200, 1200, 31)
     #var_edges = numpy.arange(0, 2050, 50)
     var_edges = numpy.linspace(200, 2000, 55)
 
-    data_files = fileio_utils.read_coupling_file(fileio_utils.coupling_file)
     basis_tuple_list = []
     for basis_parameters in basis_parameters_list:
         reweight_vector = get_amplitude_function(basis_parameters, as_scalar=False, base_equations=base_equations)
-        data_files = fileio_utils.read_coupling_file(fileio_utils.coupling_file)
-        base_events_list = fileio_utils.get_events(basis_parameters, data_files)
-        base_histograms = [ fileio_utils.retrieve_reco_weights(var_edges, base_events) for base_events in base_events_list ]
-        base_weights, base_errors = numpy.array(list(zip(*base_histograms)))
-        basis_tuple_list.append((base_weights, base_errors, reweight_vector))
+        if truth_level:
+            data_files = fileio_utils.read_coupling_file(coupling_file='basis_files/truth_LHE_couplings_extended.dat')
+            basis_files = [ truth_data_files[coupling] for coupling in basis_parameters ]
+            truth_weights, truth_errors = fileio_utils.extract_lhe_truth_data(basis_files, var_edges)
+            basis_tuple_list.append((truth_weights, truth_errors, reweight_vector))
+        else:
+            data_files = fileio_utils.read_coupling_file()
+            base_events_list = fileio_utils.get_events(basis_parameters, data_files)
+            base_histograms = [ fileio_utils.retrieve_reco_weights(var_edges, base_events) for base_events in base_events_list ]
+            base_weights, base_errors = numpy.array(list(zip(*base_histograms)))
+            basis_tuple_list.append((base_weights, base_errors, reweight_vector))
 
     testpoint_list = verification_parameters
     if is_verification:
-        verification_events_list = fileio_utils.get_events(verification_parameters, data_files)
-        testpoint_list = zip(verification_events_list, verification_parameters)
+        if truth_level:
+            verification_files = [ data_files[key] for key in verification_parameters ]
+            truth_verification_weights, truth_verification_errors = fileio_utils.extract_lhe_truth_data(verification_files, var_edges)
+            testpoint_list = zip(verification_parameters, truth_verification_weights, truth_verification_errors)
+        else:
+            testpoint_list = []
+            verification_events_list = fileio_utils.get_events(verification_parameters, data_files)
+            for events, param in zip(verification_events_list, verification_parameters):
+                verification_weights, verification_errors = fileio_utils.retrieve_reco_weights(var_edges, events)
+                testpoint_list.append( (param, verification_weights, verification_errors) )
 
     for testpoint in testpoint_list:
         verification_weights, verification_errors = None, None
         if is_verification:
-            verification_events, coupling_parameters = testpoint
-            verification_weights, verification_errors = fileio_utils.retrieve_reco_weights(var_edges, verification_events)
+            coupling_parameters, verification_weights, verification_errors = testpoint
         else: 
             coupling_parameters = testpoint
 
@@ -385,7 +398,16 @@ def compare_bases_reco_method(basis_parameters_list, verification_parameters,
         for base_weights, base_errors, reweight_vector in basis_tuple_list:
             combined_tuples.append( reco_reweight(reweight_vector, coupling_parameters, base_weights, base_errors) )
 
-        plot_histogram('reco_mHH_compare'+name_suffix, 'NNT-Based Linear Combination:\n$m_{HH}$'+title_suffix,
+        if truth_level:
+            name='truth_mHH_compare'+name_suffix
+            title = 'Truth LHE-Based Linear Combination:\nTruth $m_{HH}$'+title_suffix
+            xlabel='Truth $m_{HH}$ (GeV)'
+        else:
+            name = 'reco_mHH_compare'+name_suffix
+            title = 'NNT-Based Linear Combination:\n$m_{HH}$'+title_suffix
+            xlabel='Reconstructed $m_{HH}$ (GeV)'
+
+        plot_histogram( name, title,
                 var_edges, coupling_parameters,
                 combined_tuples[0][0], combined_tuples[0][1],
                 verification_weights, verification_errors,
@@ -393,7 +415,7 @@ def compare_bases_reco_method(basis_parameters_list, verification_parameters,
                 alt_linearly_combined_errors=combined_tuples[1][1],
                 generated_label=labels[0],
                 alt_label=labels[1],
-                xlabel='Reconstructed $m_{HH}$ (GeV)',
+                xlabel=xlabel,
         )
 
 
@@ -406,7 +428,7 @@ def validate_reco_method(basis_parameters, verification_parameters,
     var_edges = numpy.linspace(200, 2000, 55)
     #var_edges = numpy.arange(0, 2050, 50)
 
-    data_files = fileio_utils.read_coupling_file(fileio_utils.coupling_file)
+    data_files = fileio_utils.read_coupling_file()
     base_events_list = fileio_utils.get_events(basis_parameters, data_files)
     verification_events_list = fileio_utils.get_events(verification_parameters, data_files)
 
@@ -434,7 +456,7 @@ def main():
 
     args = parser.parse_args()
 
-    data_files = fileio_utils.read_coupling_file(fileio_utils.coupling_file)
+    data_files = fileio_utils.read_coupling_file()
     verification_parameters = list(data_files.keys())
 
     #pdb.set_trace()
@@ -444,12 +466,12 @@ def main():
     elif args.mode == '1D':
         generate_1D_pojection_scans(_reco_basis)
     elif args.mode == 'dual':
-        compare12_reco_method(_reco_basis,
-                [(1,1,1), (0.5,1,1), (1.5,1,1)],
+        compare12_reco_method( [(1.0, 1.0, 1.0), (0.5, 1.0, 1.0), (3.0, 1.0, 1.0), (1.0, 2.0, 1.0), (1.0, 10.0, 1.0), (0.0, 0.0, 1.0)],
+                [(1,1,1), (1.5,1,1), (3,1,1)],
                 [(1,1,1), (1,2,1), (1,10,1)],
                 verification_parameters)
     elif args.mode == 'multi':
-        compare1D3S9S_reco_method( [(1,1,1), (0.5,1,1), (1.5,1,1)],
+        compare1D3S9S_reco_method( [(1,1,1), (1.5,1,1), (3,1,1)],
         #compare1D3S9S_reco_method( [(1.0, 1.0, 1.0), (1.5, 1.0, 1.0), (2.0, 1.0, 1.0)],
                 ( [0,2], (
                     [1,0.5,0],

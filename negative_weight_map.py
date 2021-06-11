@@ -36,13 +36,17 @@ def get_Nweight_sum1D(couplings, weights, k2v_vals, kl_vals, kv_vals, vector=Fal
         return nWeight_integral
 
 
-def get_Nweight_sum(couplings, weights, kv_val, k2v_val_range, kl_val_range, grid=False):
+def get_Nweight_sum(couplings, weights, kv_val, k2v_val_range, kl_val_range, grid=False, mask=None):
     #numpy.set_printoptions(threshold=sys.maxsize, linewidth=230, precision=0, floatmode='fixed', suppress=True)
-    reweight_vector_function = combination_utils.get_amplitude_function(couplings, as_scalar=False)
+    reweight_vector_function = combination_utils.get_amplitude_function(couplings, as_scalar=False, base_equations=combination_utils.full_scan_terms)
     k2v_grid, kl_grid = numpy.meshgrid(k2v_val_range, kl_val_range)
     multiplier_grid_vector = reweight_vector_function(k2v_grid, kl_grid, kv_val)[0]
     combined_weights = sum([ multiplier_grid[...,None] * w for multiplier_grid, w in zip(multiplier_grid_vector, weights) ])
     negative_boolean_grid = combined_weights < 0
+    if type(mask) != type(None):
+        mask_grid = mask(k2v_grid, kl_grid)
+        negative_boolean_grid = negative_boolean_grid * mask_grid[...,None]
+
     if grid:
         nWeight_totals = negative_boolean_grid.sum(axis=2)
         return nWeight_totals
@@ -85,45 +89,42 @@ def draw_error_map(basis_parameters, var_edges, kv_val, k2v_val_range, kl_val_ra
     for coupling in basis_parameters: basis_table += '\n'+combination_utils.nice_coupling_string(coupling)
     fig.text(.99, 1, basis_table, ha='right', va='top', fontsize='xx-small', family='monospace')
 
-    range_title = f'{var_edges[0]:.0f}-{var_edges[-1]:.0f} in Bins of {var_edges[1]-var_edges[0]:.2f} GeV'
-    title  = 'Number of Bins in $M_{HH}$ with Negative Weights,\nOver Range '+range_title
+    range_title = f'{var_edges[0]:.0f}-{var_edges[-1]:.0f} GeV in Bins of {var_edges[1]-var_edges[0]:.2f} GeV'
+    title  = 'Number of Bins in $m_{HH}$ with Negative Weights,\nOver $m_{HH}$ Range '+range_title
     if type(title_suffix) != type(None): title += '\n'+title_suffix
     fig.suptitle(title, fontsize=10, fontweight='bold')
     #plt.show()
     dpi = 500
     figname = 'negative_weights'+name_suffix
-    plt.savefig('plots/error_maps/'+figname+'.png',dpi=dpi)
-    plt.savefig('plots/.error_maps/'+figname+'.pdf',dpi=dpi)
+    #plt.savefig('plots/error_maps/'+figname+'.png',dpi=dpi)
+    plt.savefig('plots/error_maps/'+figname+'.pdf',dpi=dpi)
     #output.savefig()
     #plt.close()
 
 
 
 
-def single_reco_negative_weight_map(basis_parameters):
-    #var_edges = numpy.linspace(250, 2000, 101)
-    #var_edges = range(200, 1200, 33)
+def single_negative_weight_map(basis_parameters, name_suffix='_base', truth_level=False):
     var_edges = numpy.linspace(200, 1200, 31)
     kv_val = 1.0
-    #k2v_val_range = [0,1,2] 
-    #kl_val_range = [-8,-9,-10]
-    k2v_val_range = numpy.linspace(-1,3,101)
-    kl_val_range = numpy.linspace(-14,16,101)
+    num_kappa_bins = 100
+    k2v_val_range = numpy.linspace(-2,4,num_kappa_bins+1)
+    kl_val_range = numpy.linspace(-14,16,num_kappa_bins+1)
 
-    data_files = fileio_utils.read_coupling_file('basis_files/nnt_coupling_file_2021May.dat')
-    base_events_list = fileio_utils.get_events(basis_parameters, data_files)
-    base_histograms = [ fileio_utils.retrieve_reco_weights(var_edges, base_events) for base_events in base_events_list ]
-    base_weights, base_errors = numpy.array(list(zip(*base_histograms)))
-    #print(base_weights)
+    if truth_level:
+        truth_data_files = fileio_utils.read_coupling_file(coupling_file='basis_files/truth_LHE_couplings.dat')
+        basis_files = [ truth_data_files[coupling] for coupling in basis_parameters ]
+        base_weights, base_errors = fileio_utils.extract_lhe_truth_data(basis_files, var_edges)
+    else:
+        data_files = fileio_utils.read_coupling_file()
+        base_events_list = fileio_utils.get_events(basis_parameters, data_files)
+        base_histograms = [ fileio_utils.retrieve_reco_weights(var_edges, base_events) for base_events in base_events_list ]
+        base_weights, base_errors = numpy.array(list(zip(*base_histograms)))
 
+    integral = get_Nweight_sum(basis_parameters, base_weights, kv_val, k2v_val_range, kl_val_range, grid=False)
     negative_weight_grid = get_Nweight_sum(basis_parameters, base_weights, kv_val, k2v_val_range, kl_val_range, grid=True)
-
-    draw_error_map(basis_parameters, var_edges, kv_val, k2v_val_range, kl_val_range, negative_weight_grid, 
-                name_suffix='_mc16ade', title_suffix='MC16a/d/e')
-                #name_suffix='_mc16d_old', vmax=12, title_suffix='MC16d Only')
-                #name_suffix='_mc16ad_old', vmax=12, title_suffix='MC16a and MC16d')
-
-
+    draw_error_map(basis_parameters, var_edges, kv_val, k2v_val_range, kl_val_range, negative_weight_grid, name_suffix=name_suffix,
+                title_suffix=f'Integral={int(integral)}')
 
 
 
@@ -136,7 +137,16 @@ def main():
 #    args = parser.parse_args()
 
     #pdb.set_trace()
-    single_reco_negative_weight_map(_reco_basis)
+    #single_negative_weight_map(_reco_basis)
+    single_negative_weight_map( 
+        [(1.0, 1.0, 1.0), (0.5, 1.0, 1.0), (3.0, 1.0, 1.0), (1.0, 2.0, 1.0), (1.0, 10.0, 1.0), (0.0, 0.0, 1.0)],
+        truth_level=True, name_suffix='truthRtop0' )
+        #truth_level=True, name_suffix='uncappedtruthRtop0' )
+
+    single_negative_weight_map(
+        [(1.0, 1.0, 1.0), (0.5, 1.0, 1.0), (3.0, 1.0, 1.0), (1.0, 0.0, 1.0), (1.0, 10.0, 1.0), (0.0, 0.0, 1.0)],
+        truth_level=True, name_suffix='truthRtop1' )
+        #truth_level=True, name_suffix='uncappedtruthRtop1' )
 
 
 if __name__ == '__main__': main()

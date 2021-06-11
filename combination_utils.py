@@ -313,22 +313,22 @@ def plot_all_couplings_reco(prefix, file_name, plotdir=''):
 
 
 def main():
-    validation_states = [
-        [1    , 1   , 1   ],
-        [0    , 1   , 1   ],
-        [0.5  , 1   , 1   ],
-        [1.5  , 1   , 1   ],
-        [2    , 1   , 1   ],
-        [3    , 1   , 1   ],
-        [1    , 0   , 1   ],
-        [1    , 2   , 1   ],
-        [1    , 10  , 1   ],
-        [1    , 1   , 0.5 ],
-        [1    , 1   , 1.5 ],
-        [0    , 0   , 1   ]
+    current_states = [
+        (1    , 1   , 1   ),
+        (0    , 1   , 1   ),
+        (0.5  , 1   , 1   ),
+        (1.5  , 1   , 1   ),
+        (2    , 1   , 1   ),
+        (3    , 1   , 1   ),
+        (1    , 0   , 1   ),
+        (1    , 2   , 1   ),
+        (1    , 10  , 1   ),
+        (1    , 1   , 0.5 ),
+        (1    , 1   , 1.5 ),
+        (0    , 0   , 1   )
     ]
 
-    existing_states = [ #k2v, kl, kv
+    old_states = [ #k2v, kl, kv
         [1  , 1   , 1   ], # 450044
         [1  , 2   , 1   ], # 450045
         [2  , 1   , 1   ], # 450046
@@ -362,8 +362,58 @@ def main():
         [4  , 1   , 1  ]
     ]
 
-    orthogonality_metric(current_3D_reco_basis)
-    orthogonality_metric(new_3D_reco_basis)
+    #orthogonality_metric(current_3D_reco_basis)
+    #orthogonality_metric(new_3D_reco_basis)
+    qk_basis = [
+        (3,1,1),
+        (2,1,1),
+        (1.5,1,1)
+    ]
+    #get_amplitude_function(qk_basis, base_equations=k2v_scan_terms, name='3d_temp', output='tex')
+
+    recommended3D_basis_202106 = [
+        (1.0, 1.0, 1.0),
+        (0.5, 1.0, 1.0),
+        (3.0, 1.0, 1.0),
+        (1.0, 2.0, 1.0),
+        (1.0, 10.0, 1.0),
+        (0.0, 0.0, 1.0)
+    ]
+    combination_function = get_amplitude_function(recommended3D_basis_202106, as_scalar=True)
+    theory_function = get_theory_xsec_function()
+
+    import fileio_utils
+    lumi_total = 3.2 + 24.6 + 43.65 + 58.45
+    data_files = fileio_utils.read_coupling_file()
+    all_cutflows = fileio_utils.get_combined_cutflow_values(data_files.keys(), data_files)
+    all_theory_xsec = [ theory_function(basis)*lumi_total for basis in current_states ]
+    all_init_xsec = [ all_cutflows[basis]['Initial'] for basis in current_states ]
+    all_final_xsec = [ all_cutflows[basis]['Final'] for basis in current_states ]
+    all_num_events = [ all_cutflows[basis]['FinalCount'] for basis in current_states ]
+
+
+    init_xsec = [ all_cutflows[basis]['Initial'] for basis in recommended3D_basis_202106 ]
+    final_xsec = [ all_cutflows[basis]['Final'] for basis in recommended3D_basis_202106 ]
+    num_events = [ all_cutflows[basis]['FinalCount'] for basis in recommended3D_basis_202106 ]
+
+    sampleA = (3, -9, 1)
+    sampleB = (1, -5, 0.5)
+    theoryA = theory_function(sampleA)*lumi_total
+    theoryB = theory_function(sampleB)*lumi_total
+    init_xsecA = combination_function(*sampleA, *init_xsec)
+    init_xsecB = combination_function(*sampleB, *init_xsec)
+    final_xsecA = combination_function(*sampleA, *final_xsec)
+    final_xsecB = combination_function(*sampleB, *final_xsec)
+    numA = combination_function(*sampleA, *num_events)
+    numB = combination_function(*sampleB, *num_events)
+    pretty_print = lambda basis, theory, init, final, num: print(f'{basis[0]:4.1f}, {basis[1]:4.1f}, {basis[2]:4.1f}, {int(theory):4d}, {int(init):7d}, {final:5.2f}, {1e4*final/theory:5.2f}, {int(num):6d}')
+    print('    BASIS   , THRY, INTIAL , FINAL, ACCEP, COUNT ')
+    for basis, theory, init, final, num in zip(current_states, all_theory_xsec, all_init_xsec, all_final_xsec, all_num_events):
+        pretty_print(basis, theory, init, final, num)
+    print()
+    pretty_print(sampleA, theoryA, init_xsecA, final_xsecA, numA)
+    pretty_print(sampleB, theoryB, init_xsecB, final_xsecB, numB)
+
 
 
 

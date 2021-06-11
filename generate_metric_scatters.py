@@ -11,7 +11,6 @@ from matplotlib import pyplot as plt
 #import pdb
 
 import fileio_utils
-from fileio_utils import read_coupling_file, get_events, retrieve_reco_weights, get_combined_cutflow_values
 from combination_utils import is_valid_combination, orthogonality_metric, get_amplitude_function, get_theory_xsec_function
 import combination_utils
 #from combination_utils import basis_full3D_old_minN as _reco_basis 
@@ -115,13 +114,22 @@ def generate_metric_values():
     k2v_val_range = numpy.linspace(-2,4,num_bins+1)
     kl_val_range = numpy.linspace(-14,16,num_bins+1)
 
-    data_files = read_coupling_file(fileio_utils.coupling_file)
-    #all_cutflows = get_combined_cutflow_values(data_files.keys(), data_files).values() # It's a really good things that python dicts are ordered...
-    all_events = get_events(data_files.keys(), data_files)
-    all_histograms = [ retrieve_reco_weights(var_edges,events) for events in all_events ]
+    #data_files = fileio_utils.read_coupling_file()
+    #all_events = fileio_utils.get_events(data_files.keys(), data_files)
+    #all_histograms = [ fileio_utils.retrieve_reco_weights(var_edges,events) for events in all_events ]
+    #all_variations = list(zip(data_files.keys(), all_histograms, all_events))#[:7]
+    #all_cutflows = fileio_utils.get_combined_cutflow_values(data_files.keys(), data_files).values() # It's a really good things that python dicts are ordered...
+
+    truth_data_files = fileio_utils.read_coupling_file(coupling_file='basis_files/truth_LHE_couplings_extended.dat')
+    truth_weights, truth_errors = fileio_utils.extract_lhe_truth_data(truth_data_files.values(), var_edges)
+    all_variations = list(zip(truth_data_files.keys(), truth_weights, truth_errors))
+
+    #assert list(data_files.keys()) == list(truth_data_files.keys())
+    #all_variations = list(zip(data_files.keys(), all_histograms, all_events, all_events, truth_weights, truth_errors))
+
+
     # Wrap all variations up together with their histograms so I can find combinations
     #all_variations = list(zip(data_files.keys(), all_histograms, all_cutflows, all_events))#[:7]
-    all_variations = list(zip(data_files.keys(), all_histograms, all_events, all_events))#[:7]
     print('All variations loaded, proceeding to retrieve metrics...')
     #for variation, cuts in zip(data_files.keys(), all_cutflows):
     #    accXeff = cuts['Signal'] / cuts['Initial']
@@ -132,18 +140,21 @@ def generate_metric_values():
     basis_metrics = {}
     for basis_set in itertools.combinations(all_variations,6):
         # Unwrap each combination
-        couplings, histograms, cutflows, events_list = list(zip(*basis_set))
+        #couplings, histograms, cutflows, events_list, truth_weights, truth_errors = list(zip(*basis_set))
+        #couplings, histograms, events_list = list(zip(*basis_set))
+        couplings, truth_weights, truth_errors = list(zip(*basis_set))
         if not is_valid_combination(couplings): continue
         #if (1.0,1.0,1.0) not in couplings: continue
 
-        weights, errors = numpy.array( list(zip(*histograms)) )
+        #weights, errors = numpy.array( list(zip(*histograms)) )
 
         basis_metrics[couplings] = {
-            'Nweight_integral': get_Nweight_sum(couplings, weights, kv_val, k2v_val_range, kl_val_range),
+            #'Nweight_integral': get_Nweight_sum(couplings, weights, kv_val, k2v_val_range, kl_val_range),
+            'Nweight_truth_integral': get_Nweight_sum(couplings, truth_weights, kv_val, k2v_val_range, kl_val_range),
             #'orthogonality': metric_orthogonality(couplings),
             #'reco_effective_stats_integral': metric_reco_effective_stats_integral(couplings, events_list, kv_val, k2v_val_range, kl_val_range),
-            #'theory_effective_stats_integral': metric_theory_effective_stats_integral(couplings, kv_val, k2v_val_range, kl_val_range),
-            'reco_solidarity_integral': get_reco_solidarity_map(couplings, weights, kv_val, k2v_val_range, kl_val_range),
+            'theory_effective_stats_integral': get_theory_effective_stats_map(couplings, kv_val, k2v_val_range, kl_val_range),
+            #'reco_solidarity_integral': get_reco_solidarity_map(couplings, weights, kv_val, k2v_val_range, kl_val_range),
             'theory_solidarity_integral': get_theoretical_solidarity_map(couplings, kv_val, k2v_val_range, kl_val_range),
             #'theory_test_val': metric_theory_test_val(couplings),
             #'contribution_integral': metric_contribution_integral(couplings, kv_val, k2v_val_range, kl_val_range),
@@ -190,24 +201,27 @@ def main():
 
     numpy.set_printoptions(precision=None, linewidth=400, threshold=100, sign=' ', formatter={'float':lambda n: f'{n: 4.1f}'}, floatmode='fixed')
     plot_specs = {
-        'Nweight_integral': ( 'Negative Weight Integral', '' ),
-        'orthogonality': ( 'Orthogonality', '' ),
-        'reco_effective_stats_integral': ( 'Effective Statistics Integral', ''),
-        'reco_solidarity_integral': ( 'Reconstructed Solidarity Integral', '' ),
-        'theory_effective_stats_integral': ( 'Theoretical Effective Statistics Integral', ''),
-        'theory_solidarity_integral': ( 'Theoretical Solidarity Integral', '' ),
-        'contribution_integral': ( 'Contribution Count Integral', '' ),
-        'accXeff_sum': ( 'Acceptance X Efficiency Sum', ' (X $10^{-5}$)' ),
-        'accXeff_geometric': ( 'Acceptance X Efficiency Geometric Mean', '' ),
-        'accXeff_min': ( 'Acceptance X Efficiency Minimum', '' ),
-        'accXeff_rms': ( 'Acceptance X Efficiency RMS', '' ),
-        'accXeff_avg_stdev': ( 'Acceptance X Efficiency 'f'$\mu/\sigma$', '' ),
-        'accXeff_sigma': ( 'Acceptance X Efficiency Standard Deviation', '' ),
-        'accXeff_harmonic': ( 'Acceptance X Efficiency Harmonic Mean', '' ),
-        'eventCount_sum': ( 'Event Count Sum', '' )
+        'Nweight_integral': ( 'Negative Weight Integral', '', False),
+        'Nweight_truth_integral': ( 'Truth-Level Negative Weight Integral', '', False),
+        'orthogonality': ( 'Orthogonality', '', True),
+        'reco_effective_stats_integral': ( 'Effective Statistics Integral', '', True),
+        'reco_solidarity_integral': ( 'Reconstructed Solidarity Integral', '', True),
+        'theory_effective_stats_integral': ( 'Theoretical Effective Statistics Integral', '', True),
+        'theory_solidarity_integral': ( 'Theoretical Solidarity Integral', '', True),
+        'contribution_integral': ( 'Contribution Count Integral', '', True),
+        'accXeff_sum': ( 'Acceptance X Efficiency Sum', ' (X $10^{-5}$)', True),
+        'accXeff_geometric': ( 'Acceptance X Efficiency Geometric Mean', '', True),
+        'accXeff_min': ( 'Acceptance X Efficiency Minimum', '', True),
+        'accXeff_rms': ( 'Acceptance X Efficiency RMS', '', True),
+        'accXeff_avg_stdev': ( 'Acceptance X Efficiency 'f'$\mu/\sigma$', '', True),
+        'accXeff_sigma': ( 'Acceptance X Efficiency Standard Deviation', '', True),
+        'accXeff_harmonic': ( 'Acceptance X Efficiency Harmonic Mean', '', True),
+        'eventCount_sum': ( 'Event Count Sum', '', True )
     }
 
     plot_list = [ (plot, 'Nweight_integral') for plot in plot_specs.keys() if plot != 'Nweight_integral' ]
+    plot_list += [ (plot, 'Nweight_truth_integral') for plot in plot_specs.keys() if plot != 'Nweight_truth_integral' ]
+    plot_list += [ (plot, 'theory_effective_stats_integral') for plot in plot_specs.keys() if plot != 'theory_effective_stats_integral' ]
     #plot_list += [ (plot, 'reco_effective_stats_integral') for plot in plot_specs.keys() if plot != 'reco_effective_stats_integral' ]
 
     dpi=500
@@ -215,15 +229,17 @@ def main():
         if not (x in metric_lists and y in metric_lists): continue
 
         #xy_tuples = list(zip(metric_lists[x], metric_lists[y]))
-        #xvals, yvals = list(zip( *sorted(xy_tuples, reverse=True)[:100] ))
+        #xvals, yvals = list(zip( *sorted(xy_tuples, reverse=plot_specs[x][2])[:200] ))
+
         xvals, yvals = metric_lists[x], metric_lists[y]
-        plt.scatter(xvals, yvals)
+
+        plt.scatter(xvals, yvals, marker='.')
         plt.xlabel(plot_specs[x][0]+plot_specs[x][1])
         plt.ylabel(plot_specs[y][0]+plot_specs[y][1])
         plt.title(plot_specs[y][0]+'\nVS '+plot_specs[x][0])
         figname = y+'_VS_'+x
-        plt.savefig('plots/metrics/'+figname+'.png', dpi=dpi)
-        plt.savefig('plots/.metrics/'+figname+'.pdf', dpi=dpi)
+        #plt.savefig('plots/metrics/'+figname+'.png', dpi=dpi)
+        plt.savefig('plots/metrics/'+figname+'.pdf', dpi=dpi)
         plt.close()
 
 

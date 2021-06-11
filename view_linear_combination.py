@@ -70,8 +70,8 @@ def plot_histogram(hist_name, hist_title, edge_list, coupling_parameters,
     kappa_string = 'cvv'+kappa_string_list[0]+'cl'+kappa_string_list[1]+'cv'+kappa_string_list[2]
     fig.tight_layout()
     figname = hist_name+'_'+kappa_string
-    fig.savefig('plots/previews/'+figname+'.png', dpi=dpi)
-    fig.savefig('plots/.previews/'+figname+'.pdf', dpi=dpi)
+    #fig.savefig('plots/previews/'+figname+'.png', dpi=dpi)
+    fig.savefig('plots/previews/'+figname+'.pdf', dpi=dpi)
     plt.close()
 
 
@@ -80,7 +80,7 @@ def view_reco_method(basis_parameters, view_params):
     reweight_vector = get_amplitude_function(basis_parameters, as_scalar=False)
     var_edges = numpy.linspace(200, 1200, 31)
 
-    data_files = fileio_utils.read_coupling_file(fileio_utils.coupling_file)
+    data_files = fileio_utils.read_coupling_file()
     base_events_list = fileio_utils.get_events(basis_parameters, data_files)
     base_histograms = [ fileio_utils.retrieve_reco_weights(var_edges, base_events) for base_events in base_events_list ]
     base_weights, base_errors = numpy.array(list(zip(*base_histograms)))
@@ -89,7 +89,7 @@ def view_reco_method(basis_parameters, view_params):
         print(coupling_parameters)
         combined_weights, combined_errors = reco_reweight(reweight_vector, coupling_parameters, base_weights, base_errors)
 
-        plot_histogram('preview_reco_mHH_new', 'New NNT-Based Linear Combination:\n$m_{HH}$', var_edges, coupling_parameters,
+        plot_histogram('preview_reco_mHH_new', 'NNT-Based Linear Combination:\n$m_{HH}$', var_edges, coupling_parameters,
                  combined_weights, combined_errors,
                  xlabel='Reconstructed $m_{HH}$ (GeV)'
         )
@@ -104,23 +104,19 @@ def main():
 
     args = parser.parse_args()
 
-    view_parameters = [ #k2v, kl, kv
-        ( 1    ,  1   , 1 ),
-        ( 2    ,  1   , 1 ),
-        ( 1    ,  2   , 1 ),
-        ( 1    ,  3   , 1 ),
-        ( 0    ,  1   , 1 ),
-        ( 0.5  ,  1   , 1 ),
-        ( 4    ,  1   , 1 ),
-        ( 1    ,  2   , 1 ),
-        ( 1    ,  10  , 1 ),
-        ( 2    ,  10  , 1 ),
-        ( 0.5  ,  13  , 1 ),
-        ( 1.5  ,  -9  , 1 ),
-        ( 0    ,  -9  , 1 ),
-        ( 0    ,   8  , 1 ),
-        ( 3    ,  -9  , 1 ),
-        ( 1    ,   11 , 1 )
+    #view_parameters = [ #k2v, kl, kv
+    #    ( 1    ,  -7   , 1 ),
+    #]
+
+    k2v_vals = [-1.5, 0.5, 2, 3.5]
+    kl_vals = [-9, -3, 5, 14]
+    view_parameters = []
+    for k2v in k2v_vals:
+        for kl in kl_vals:
+            view_parameters.append( (k2v, kl, 1) )
+    view_parameters += [
+        (1,-7,1),
+        (4,1,1)
     ]
 
 

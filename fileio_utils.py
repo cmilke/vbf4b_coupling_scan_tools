@@ -1,20 +1,19 @@
 import math
 import numpy
-#import uproot3 as uproot
 import uproot
+import inspect
 
-coupling_file = 'basis_files/nnt_coupling_file_2021May_crypto.dat'
-
-def extract_lhe_events(rootfile, key_list):
-    ttree = uproot.rootio.open(rootfile)['tree']
-    events = ttree.pandas.df(branches=['weight',*key_list])
-    return events
+Primary_coupling_file = 'basis_files/nnt_coupling_file_2021May_crypto.dat'
 
 
+def retrieve_lhe_weights(ttree, kinematic_variable, bin_edges, stat_limit=None):
+    if stat_limit == None:
+        event_weights = numpy.array(ttree['weight'].array())
+        event_kinematics = numpy.array(ttree[kinematic_variable].array())
+    else:
+        event_weights = numpy.array(ttree['weight'].array())[:stat_limit]
+        event_kinematics = numpy.array(ttree[kinematic_variable].array())[:stat_limit]
 
-def retrieve_lhe_weights(lhe_events, kinematic_variable, bin_edges):
-    event_weights = lhe_events['weight'].values
-    event_kinematics = lhe_events[kinematic_variable].values
     weights = numpy.histogram(event_kinematics, weights=event_weights, bins=bin_edges)[0]
     errors = numpy.zeros( len(weights) )
     event_bins = numpy.digitize(event_kinematics,bin_edges)-1
@@ -26,12 +25,35 @@ def retrieve_lhe_weights(lhe_events, kinematic_variable, bin_edges):
     return weights, errors
 
 
+def retrieve_lhe_weights_with_emulated_selection(ttree, bin_edges):
+    event_weights = numpy.array(ttree['weight'].array())
+    event_mhh = numpy.array(ttree['HH_m'].array())
 
-def extract_lhe_truth_data(file_list, mHH_edges, normalize=False):
+    # Perform Selections
+
+
+
+    weights = numpy.histogram(selected_event_mhh, weights=selected_event_weights, bins=bin_edges)[0]
+    errors = numpy.zeros( len(weights) )
+    event_bins = numpy.digitize(selected_event_mhh,bin_edges)-1
+    for i in range(len(errors)):
+        binned_weights = event_weights[ event_bins == i ]
+        error2_array = binned_weights**2
+        error = math.sqrt( error2_array.sum() )
+        errors[i] = error
+    return weights, errors
+
+
+
+def extract_lhe_truth_data(file_list, mHH_edges, normalize=False, stat_limit=30000, emulateSelection=False):
     weight_list, error_list = [], []
     for f in file_list:
-        events = extract_lhe_events(f,['HH_m'])
-        weights, errors = retrieve_lhe_weights(events, 'HH_m', mHH_edges)
+        f = f[0]
+        ttree = uproot.open(f)['tree']
+        if emulateSelection:
+            weights, errors = retrieve_lhe_weights_with_emulated_selection(ttree, mHH_edges)
+        else:
+            weights, errors = retrieve_lhe_weights(ttree, 'HH_m', mHH_edges, stat_limit=stat_limit)
         if normalize:
             norm = weights.sum()
             weights /= norm
@@ -97,20 +119,29 @@ def retrieve_reco_weights(var_edges, reco_events):
 
 
 
-def get_cutflow_values(filename, hist_name='FourTagCutflow'):
+def get_cutflow_values(filename, hist_name='VBF_FourTagCutflow'):
     directory = uproot.open(filename)
     cutflow_hist = directory[hist_name]
-    labeled_values = { k:v for k,v in zip(cutflow_hist.xlabels, cutflow_hist.values) }
+    labeled_values = { k:v for k,v in zip(cutflow_hist.axis('x').labels(), cutflow_hist.values()) }
+
+    tree_name = 'sig'
+    ttree = directory[tree_name]
+    pass_vbf_sel = ttree['pass_vbf_sel'].array()
+    x_wt_tag = ttree['X_wt_tag'].array() > 1.5
+    ntag = ttree['ntag'].array() >= 4
+    valid_event = numpy.logical_and.reduce( (pass_vbf_sel, x_wt_tag, ntag) )
+    weights =  ttree['mc_sf'].array()[:,0][valid_event] 
+    final_weight = sum(weights)
+    labeled_values['Final'] = final_weight
+    labeled_values['FinalCount'] = len(weights)
     return labeled_values
 
 
-#FIXME: you can't just use the cutflow anymore because there are too many post nnt cuts
 def get_combined_cutflow_values(parameter_list, data_files):
     combined_cutflows = {}
     for couplings in parameter_list:
         for f in data_files[couplings]:
-            frame = uproot.rootio.open(f)[b'sig_highPtcat'].pandas.df(branches=['run_number'])
-            run_number = frame['run_number'].values[0]
+            run_number = uproot.open(f)['sig']['run_number'].array()[0]
             lumi_weight = None
             if   run_number < 296939: lumi_weight = 3.2 # MC2015
             elif 296939 < run_number and run_number < 320000: lumi_weight = 24.6  # MC2016
@@ -119,9 +150,8 @@ def get_combined_cutflow_values(parameter_list, data_files):
             else:
                 print("UNKNOWN RUN NUMBER!! -- " + str(run_number))
                 exit(1)
-
             cutflows = get_cutflow_values(f)
-            lumi_weighted_cutflows = { key:val*lumi_weight for key,val in cutflows.items() }
+            lumi_weighted_cutflows = { key:val*lumi_weight if key != 'FinalCount' else val for key,val in cutflows.items() }
             if couplings not in combined_cutflows:
                 combined_cutflows[couplings] = lumi_weighted_cutflows
             else:
@@ -130,7 +160,7 @@ def get_combined_cutflow_values(parameter_list, data_files):
     return combined_cutflows
 
 
-def read_coupling_file(coupling_file):
+def read_coupling_file(coupling_file=Primary_coupling_file):
     data_files = {}
     with open(coupling_file) as coupling_list:
         for line in coupling_list:

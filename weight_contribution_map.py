@@ -10,6 +10,7 @@ from matplotlib import pyplot as plt
 
 #import pdb
 
+import combination_utils
 from combination_utils import get_amplitude_function, get_theory_xsec_function
 
 
@@ -36,8 +37,8 @@ def get_variance_count_map(couplings, kv_val, k2v_val_range, kl_val_range):
     return weight_contribution_grid
 
 
-def get_theoretical_solidarity_map(couplings, kv_val, k2v_val_range, kl_val_range, grid=False):
-    #numpy.set_printoptions(threshold=sys.maxsize, linewidth=230, precision=0, floatmode='fixed', suppress=True)
+def get_theoretical_solidarity_map(couplings, kv_val, k2v_val_range, kl_val_range, grid=False, mask=None):
+    numpy.set_printoptions(threshold=sys.maxsize, linewidth=230, precision=0, floatmode='fixed', suppress=True)
     theory_xsec_function = get_theory_xsec_function()
     xsec_list = [ theory_xsec_function(c) for c in couplings ]
     reweight_vector_function = get_amplitude_function(couplings, as_scalar=False)
@@ -48,6 +49,10 @@ def get_theoretical_solidarity_map(couplings, kv_val, k2v_val_range, kl_val_rang
     abs_stdev = abs(scaled_xsecs).std(axis=0)
     combined_xsecs = scaled_xsecs.sum(axis=0)
     solidarity_grid = combined_xsecs / abs_stdev
+    if type(mask) != type(None):
+        mask_grid = mask(k2v_grid, kl_grid)
+        solidarity_grid = solidarity_grid * mask_grid
+
     if grid:
         return solidarity_grid
     else:
@@ -74,7 +79,36 @@ def get_reco_solidarity_map(couplings, weights, kv_val, k2v_val_range, kl_val_ra
         return solidarity_integral
 
 
-def get_theory_effective_stats_map(couplings, kv_val, k2v_val_range, kl_val_range):
+def get_theory_effective_stats_map(couplings, kv_val, k2v_val_range, kl_val_range, grid=False, mask=None):
+    numpy.set_printoptions(threshold=sys.maxsize, linewidth=230, precision=0, floatmode='fixed', suppress=True)
+    theory_xsec_function = get_theory_xsec_function()
+    xsec_array = numpy.array([ theory_xsec_function(c) for c in couplings ])
+    reweight_vector_function = get_amplitude_function(couplings, as_scalar=False)
+
+    k2v_grid, kl_grid = numpy.meshgrid(k2v_val_range, kl_val_range)
+    multiplier_grid_vector = reweight_vector_function(k2v_grid, kl_grid, kv_val)[0]
+    #scaled_xsecs = numpy.array([ multiplier_grid*xsec for multiplier_grid, xsec in zip(multiplier_grid_vector, xsec_list) ])
+    scaled_xsecs =  multiplier_grid_vector * xsec_array[:,None,None]
+
+    #abs_stdev = abs(scaled_xsecs).std(axis=0)
+    #combined_xsecs = scaled_xsecs.sum(axis=0)
+    #solidarity_grid = combined_xsecs / abs_stdev
+
+    effective_stats_grid =  scaled_xsecs.sum(axis=0)**2 / (scaled_xsecs**2).sum(axis=0)
+
+    if type(mask) != type(None):
+        mask_grid = mask(k2v_grid, kl_grid)
+        effective_stats_grid = effective_stats_grid * mask_grid
+
+    if grid:
+        return effective_stats_grid
+    else:
+        grid_pixel_area = (k2v_val_range[1] - k2v_val_range[0]) * (kl_val_range[1] - kl_val_range[0])
+        effective_stats_integral = effective_stats_grid.sum() * grid_pixel_area
+        return effective_stats_integral
+
+
+def old_get_theory_effective_stats_map(couplings, kv_val, k2v_val_range, kl_val_range, mask=None):
     reweight_vector = get_amplitude_function(couplings, as_scalar=False)
     theory_xsec_function = get_theory_xsec_function()
     xsec_vector = [ theory_xsec_function(c) for c in couplings ]
@@ -86,7 +120,12 @@ def get_theory_effective_stats_map(couplings, kv_val, k2v_val_range, kl_val_rang
             vector = reweight_vector(*coupling_parameters)[0]
             weighted_xsec = xsec_vector * vector
             effective_stats =  sum(weighted_xsec)**2 / sum(weighted_xsec**2)
+            if type(mask) != type(None):
+                mask_val = mask(k2v_val, kl_val)
+                effective_stats *= mask_val
             weight_contribution_grid[k2v_i][kl_j] = effective_stats
+
+
     return weight_contribution_grid
 
 
@@ -152,7 +191,7 @@ def draw_contribution_map(basis_parameters, kv_val, k2v_val_range, kl_val_range,
     ax.set_xlabel('$\kappa_{2V}$')
     ax.set_ylabel('$\kappa_{\lambda}$')
     ax.grid()
-    for (x,y,m) in plottable_couplings: ax.scatter(x,y, marker=m, color='cyan', s=9)
+    for (x,y,m) in plottable_couplings: ax.scatter(x,y, marker=m, color='red', s=9)
     ax.set_aspect('auto','box')
 
     fig.subplots_adjust(right=0.85)
@@ -169,9 +208,9 @@ def draw_contribution_map(basis_parameters, kv_val, k2v_val_range, kl_val_range,
     if type(title_suffix) != type(None): title += '\n'+title_suffix
     fig.suptitle(title, fontsize=10, fontweight='bold')
     dpi = 500
-    figname = 'contribution_max'+name_suffix
-    plt.savefig('plots/error_maps/'+figname+'.png',dpi=dpi)
-    plt.savefig('plots/.error_maps/'+figname+'.pdf',dpi=dpi)
+    figname = name_suffix
+    #plt.savefig('plots/error_maps/'+figname+'.png',dpi=dpi)
+    plt.savefig('plots/error_maps/'+figname+'.pdf',dpi=dpi)
 
 
 
@@ -183,7 +222,9 @@ def single_weight_contribution_map(basis_parameters, name_suffix='', title_suffi
     k2v_val_range = numpy.linspace(-2,4,num_bins)
     kl_val_range = numpy.linspace(-14,16,num_bins)
 
-    weight_contribution_grid = get_theoretical_solidarity_map(basis_parameters, kv_val, k2v_val_range, kl_val_range, grid=True)
+    weight_contribution_grid = get_theory_effective_stats_map(basis_parameters, kv_val, k2v_val_range, kl_val_range)
+    #weight_contribution_grid = get_theory_effective_stats_map(basis_parameters, kv_val, k2v_val_range, kl_val_range, grid=True)
+    #weight_contribution_grid = get_theoretical_solidarity_map(basis_parameters, kv_val, k2v_val_range, kl_val_range, grid=True)
     #weight_contribution_grid = get_test_map(basis_parameters, kv_val, k2v_val_range, kl_val_range)
 
     grid_pixel_area = (k2v_val_range[1] - k2v_val_range[0]) * (kl_val_range[1] - kl_val_range[0])
@@ -234,13 +275,18 @@ def main():
     #    [(1.0, 1.0, 1.0), (1.5, 1.0, 1.0), (0.0, 1.0, 0.5), (1.0, 0.0, 1.0), (1.0, 10.0, 1.0), (0.5, 1.0, 1.0) ],
     #    name_suffix='rank05', title_suffix='Rank 5')
 
-    single_weight_contribution_map(
-        [ (1, 1, 1), (0, 1, 0.5), (1, 0, 1), (1, 10, 1), (0.5, 1, 1), (4, 1, 1) ],
-        name_suffix='rank01', title_suffix='')
+    #single_weight_contribution_map(
+    #    [ (1, 1, 1), (0, 1, 0.5), (1, 0, 1), (1, 10, 1), (0.5, 1, 1), (4, 1, 1) ],
+    #    name_suffix='rank01', title_suffix='')
+
+    #single_weight_contribution_map(
+    #    [ (1, 1, 1.1), (1, 1.1, 1), (1.1, 1, 1), (0.9, 1, 1.1), (1, 1.1, 0.9), (1.1, 0.9, 1) ],
+    #    name_suffix='exp', title_suffix='Experimentation')
 
     single_weight_contribution_map(
-        [ (1, 1, 1.1), (1, 1.1, 1), (1.1, 1, 1), (0.9, 1, 1.1), (1, 1.1, 0.9), (1.1, 0.9, 1) ],
-        name_suffix='exp', title_suffix='Experimentation')
+        [(1.0, 1.0, 1.0), (0.5, 1.0, 1.0), (3.0, 1.0, 1.0), (1.0, 2.0, 1.0), (1.0, 10.0, 1.0), (0.0, 0.0, 1.0)],
+        #name_suffix='solidarity_main', title_suffix='')
+        name_suffix='effective_stats', title_suffix='')
 
 
 

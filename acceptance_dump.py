@@ -12,14 +12,11 @@ import fileio_utils, combination_utils, negative_weight_map
 
 #import pdb
 
-def metric_Nweight_integral(couplings, weights, errors, kv_val, k2v_val_range, kl_val_range):
-    grid_pixel_area = (k2v_val_range[1] - k2v_val_range[0]) * (kl_val_range[1] - kl_val_range[0])
-    negative_weight_grid = negative_weight_map.get_negative_weight_grid(couplings, weights, errors, kv_val, k2v_val_range, kl_val_range)
-    grid_integral = numpy.sum( negative_weight_grid * grid_pixel_area )
-    return grid_integral
-
-def metric_accXeff_list(cutflows):
-    return [ (cuts['Signal'] / cuts['Initial']) * 10**5 for cuts in cutflows ]
+def metric_accXeff_list(theory_function, couplings, cutflows):
+    lumi_total = 3.2 + 24.6 + 43.65 + 58.45
+    return [ (cuts['Final'] / (theory_function(kappas)*lumi_total) ) * 10**4 for cuts,kappas in zip(cutflows,couplings) ]
+    #return [ (cuts['Final'] / cuts['Initial']) * 10**5 for cuts in cutflows ]
+    #return [ cuts['FinalCount'] for cuts in cutflows ]
 
 def get_sorted_acceptances():
     var_edges = numpy.linspace(200, 1200, 31)
@@ -28,13 +25,14 @@ def get_sorted_acceptances():
     k2v_val_range = numpy.linspace(-2,4,num_bins)
     kl_val_range = numpy.linspace(-14,16,num_bins)
 
-    data_files = fileio_utils.read_coupling_file('basis_files/nnt_coupling_file_2021May.dat')
+    data_files = fileio_utils.read_coupling_file()
     all_cutflows = fileio_utils.get_combined_cutflow_values(data_files.keys(), data_files).values() # It's a really good things that python dicts are ordered...
     all_events = fileio_utils.get_events(data_files.keys(), data_files)
     all_histograms = [ fileio_utils.retrieve_reco_weights(var_edges,events) for events in all_events ]
     # Wrap all variations up together with their histograms so I can find combinations
     all_variations = list(zip(data_files.keys(), all_histograms, all_cutflows, all_events))#[:7]
     print('All variations loaded, proceeding to retrieve metrics...')
+    theory_function = combination_utils.get_theory_xsec_function()
 
     total = 0
     basis_metrics = {}
@@ -46,12 +44,13 @@ def get_sorted_acceptances():
         #if (1.0,1.0,1.0) not in couplings: continue
 
         weights, errors = numpy.array( list(zip(*histograms)) )
-        Nweight_integral = metric_Nweight_integral(couplings, weights, errors, kv_val, k2v_val_range, kl_val_range)
-        accXeff = metric_accXeff_list(cutflows)
-        Nweight_acceptance_list.append( [Nweight_integral, accXeff] )
+        Nweight_integral = negative_weight_map.get_Nweight_sum(couplings, weights, kv_val, k2v_val_range, kl_val_range)
+        accXeff = metric_accXeff_list(theory_function, couplings, cutflows)
 
         total += 1
         if total % 10 == 0: print(total)
+        if total % 20 != 0: continue
+        Nweight_acceptance_list.append( [Nweight_integral, accXeff] )
     return Nweight_acceptance_list
 
 
@@ -108,8 +107,8 @@ def main():
     fig.suptitle(title, fontsize=10, fontweight='bold')
     dpi = 500
     figname = 'Nweight_acceptance_dump'
-    plt.savefig('plots/dump/'+figname+'.png',dpi=dpi)
-    plt.savefig('plots/.dump/'+figname+'.pdf',dpi=dpi)
+    #plt.savefig('plots/dump/'+figname+'.png',dpi=dpi)
+    plt.savefig('plots/dump/'+figname+'.pdf',dpi=dpi)
 
 
 if __name__ == '__main__': main()

@@ -95,8 +95,8 @@ def draw_stats_map(basis_parameters, var_edges, kv_val, k2v_val_range, kl_val_ra
     #plt.show()
     dpi = 500
     figname = 'effective_stats'+name_suffix
-    plt.savefig('plots/error_maps/'+figname+'.png',dpi=dpi)
-    plt.savefig('plots/.error_maps/'+figname+'.pdf',dpi=dpi)
+    #plt.savefig('plots/error_maps/'+figname+'.png',dpi=dpi)
+    plt.savefig('plots/error_maps/'+figname+'.pdf',dpi=dpi)
     #output.savefig()
     #plt.close()
 
@@ -110,7 +110,7 @@ def single_reco_negative_weight_map(basis_parameters):
     k2v_val_range = numpy.linspace(-2,4,num_bins)
     kl_val_range = numpy.linspace(-14,16,num_bins)
 
-    data_files = read_coupling_file('basis_files/nnt_coupling_file.dat')
+    data_files = read_coupling_file()
     base_events_list = get_events(basis_parameters, data_files)
 
     effective_stats_grid = get_effective_stats_grid(basis_parameters, base_events_list, kv_val, k2v_val_range, kl_val_range)
