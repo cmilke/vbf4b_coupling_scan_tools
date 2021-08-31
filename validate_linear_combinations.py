@@ -353,7 +353,7 @@ def compare12_reco_method(basis_parameters, k2v_basis_parameters, kl_basis_param
 
 def compare_bases_reco_method(basis_parameters_list, verification_parameters,
         base_equations=combination_utils.full_scan_terms, name_suffix='', title_suffix='',
-        labels=('',''), is_verification=True, truth_level=False, truth_data_files=None):
+        labels=('',''), is_verification=True, truth_level=False, truth_data_files=None, coupling_file=None):
 
     #var_edges = numpy.linspace(200, 1200, 31)
     #var_edges = numpy.arange(0, 2050, 50)
@@ -368,7 +368,7 @@ def compare_bases_reco_method(basis_parameters_list, verification_parameters,
             truth_weights, truth_errors = fileio_utils.extract_lhe_truth_data(basis_files, var_edges)
             basis_tuple_list.append((truth_weights, truth_errors, reweight_vector))
         else:
-            data_files = fileio_utils.read_coupling_file()
+            data_files = fileio_utils.read_coupling_file(coupling_file=coupling_file)
             base_events_list = fileio_utils.get_events(basis_parameters, data_files)
             base_histograms = [ fileio_utils.retrieve_reco_weights(var_edges, base_events) for base_events in base_events_list ]
             base_weights, base_errors = numpy.array(list(zip(*base_histograms)))
@@ -479,6 +479,20 @@ def main():
                     [3,2,1.5]
                 ))
         )
+
+    elif args.mode == 'compare':
+        coupling_file = 'basis_files/nnt_coupling_file_2021Aug_test.dat'
+        k2v_vals = [-1.5, 0.5, 1, 2, 3.5]
+        kl_vals = [-9, -7, -3, 1, 5, 14]
+        preview_couplings = []
+        for k2v in k2v_vals:
+            for kl in kl_vals:
+                preview_couplings.append( (k2v, kl, 1) )
+        compare_bases_reco_method(
+            [ combination_utils.basis_full3D_2021May_minN, combination_utils.basis_full3D_2021Aug_Neo ],
+            preview_couplings,
+            name_suffix='_preview_2021newold',
+            labels=(f'Old', f'New'), is_verification=False, truth_level=False, coupling_file=coupling_file)
     else:
         print('Mode - '+str(args.mode)+' - is not valid.')
         print('Aborting')

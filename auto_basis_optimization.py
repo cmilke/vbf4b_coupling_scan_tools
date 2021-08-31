@@ -15,7 +15,8 @@ import validate_linear_combinations
 
 
 def draw_rankings(ranks_to_draw, valid_bases, var_edges, kv_val, k2v_val_range, kl_val_range,
-        name_infix, only_heatmap=False, skip_preview=False, truth_level=False, truth_data_files=None):
+        name_infix, only_heatmap=False, skip_preview=False,
+        truth_level=False, truth_data_files=None, coupling_file=None):
 
     print('Drawing basis ranks ' + str(ranks_to_draw))
     max_negative_weight = 0
@@ -36,14 +37,11 @@ def draw_rankings(ranks_to_draw, valid_bases, var_edges, kv_val, k2v_val_range, 
 
     if only_heatmap: return
     comp_couplings = [ valid_bases[ranks_to_draw[0]][1], valid_bases[ranks_to_draw[1]][1] ]
-    if truth_level:
-        data_files = fileio_utils.read_coupling_file(coupling_file='basis_files/truth_LHE_couplings_extended.dat')
-    else:
-        data_files = fileio_utils.read_coupling_file()
+    data_files = fileio_utils.read_coupling_file(coupling_file=coupling_file)
     validate_linear_combinations.compare_bases_reco_method(comp_couplings, list(data_files.keys()),
          name_suffix=f'_auto_{name_infix}_3D_{ranks_to_draw[0]}-{ranks_to_draw[1]}',
          labels=(f'Rank {ranks_to_draw[0]}', f'Rank {ranks_to_draw[1]}'),
-         truth_level=truth_level, truth_data_files=truth_data_files )
+         truth_level=truth_level, truth_data_files=truth_data_files, coupling_file=coupling_file )
 
     if skip_preview: return
     k2v_vals = [-1.5, 0.5, 2, 3.5]
@@ -54,7 +52,7 @@ def draw_rankings(ranks_to_draw, valid_bases, var_edges, kv_val, k2v_val_range, 
             preview_couplings.append( (k2v, kl, 1) )
     validate_linear_combinations.compare_bases_reco_method(comp_couplings, preview_couplings,
          name_suffix='_preview_auto_'+name_infix+'_3D_'f'{ranks_to_draw[0]}-{ranks_to_draw[1]}',
-         labels=(f'Rank {ranks_to_draw[0]}', f'Rank {ranks_to_draw[1]}'), is_verification=False, truth_level=truth_level)
+         labels=(f'Rank {ranks_to_draw[0]}', f'Rank {ranks_to_draw[1]}'), is_verification=False, truth_level=truth_level, coupling_file=coupling_file)
 
 
 def optimize_reco( mode='reco', extra_files={}, extra_name='' ):
@@ -66,15 +64,18 @@ def optimize_reco( mode='reco', extra_files={}, extra_name='' ):
     grid_pixel_area = (k2v_val_range[1] - k2v_val_range[0]) * (kl_val_range[1] - kl_val_range[0])
 
     truth_data_files = None
+    coupling_file = None
     if mode == 'reco':
-        data_files = fileio_utils.read_coupling_file()
+        coupling_file = 'basis_files/nnt_coupling_file_2021Aug_test.dat'
+        data_files = fileio_utils.read_coupling_file(coupling_file=coupling_file)
         all_events = fileio_utils.get_events(data_files.keys(), data_files)
         all_histograms = [ fileio_utils.retrieve_reco_weights(var_edges,events) for events in all_events ]
         all_weights, all_errors = numpy.array( list(zip(*all_histograms)) )
         # Wrap all variations up together with their histograms so I can find combinations
         all_variations = list(zip(data_files.keys(), all_weights))
     elif mode == 'truth':
-        truth_data_files = fileio_utils.read_coupling_file(coupling_file='basis_files/truth_LHE_couplings.dat')
+        coupling_file = 'basis_files/truth_LHE_couplings.dat'
+        truth_data_files = fileio_utils.read_coupling_file(coupling_file=coupling_file)
         truth_data_files.update(extra_files)
         truth_weights, truth_errors = fileio_utils.extract_lhe_truth_data(truth_data_files.values(), var_edges)
         all_variations = list(zip(truth_data_files.keys(), truth_weights))
@@ -102,15 +103,15 @@ def optimize_reco( mode='reco', extra_files={}, extra_name='' ):
     valid_bases.sort()
     for rank, (integral, couplings, weight) in enumerate(valid_bases): print(rank, int(integral), couplings)
 
-    #draw_rankings([0,1,2,3], valid_bases, var_edges, kv_val, k2v_val_range, kl_val_range, 'quad', only_heatmap=True)
-    #draw_rankings([0,1], valid_bases, var_edges, kv_val, k2v_val_range, kl_val_range, 'top')
+    draw_rankings([0,1,2,3], valid_bases, var_edges, kv_val, k2v_val_range, kl_val_range, 'NEOquad', only_heatmap=True, coupling_file=coupling_file)
+    draw_rankings([0,1], valid_bases, var_edges, kv_val, k2v_val_range, kl_val_range, 'NEOtop', coupling_file=coupling_file)
 
     #draw_rankings([0,1,2,3], valid_bases, var_edges, kv_val, k2v_val_range, kl_val_range, extra_name+'_truth_quad', only_heatmap=True)
-    draw_rankings([0,1], valid_bases, var_edges, kv_val, k2v_val_range, kl_val_range, extra_name+'_truth_top', only_heatmap=False, truth_level=True, truth_data_files=truth_data_files, skip_preview=True)
+    #draw_rankings([0,1], valid_bases, var_edges, kv_val, k2v_val_range, kl_val_range, extra_name+'_truth_top', only_heatmap=False, truth_level=True, truth_data_files=truth_data_files, skip_preview=True)
 
     #draw_rankings([0,1,2,3], valid_bases, var_edges, kv_val, k2v_val_range, kl_val_range, 'masktop', only_heatmap=True)
-    #combination_utils.get_amplitude_function(valid_bases[0][1], base_equations=combination_utils.full_scan_terms, name='optimal_3DR0', output='tex')
-    #combination_utils.get_amplitude_function(valid_bases[1][1], base_equations=combination_utils.full_scan_terms, name='optimal_3DR1', output='tex')
+    combination_utils.get_amplitude_function(valid_bases[0][1], base_equations=combination_utils.full_scan_terms, name='NEOoptimal_3DR0', output='tex')
+    combination_utils.get_amplitude_function(valid_bases[1][1], base_equations=combination_utils.full_scan_terms, name='NEOoptimal_3DR1', output='tex')
 
 
 
@@ -129,8 +130,9 @@ def main():
     elif args.mode == 'truth': optimize_reco(mode='truth')
     elif args.mode == 'truth_iter':
         file_list = [
-            { (3    ,  -9   ,  1   ):     ['/home/cmilke/Documents/dihiggs/lhe_histograms/output/neo_l-9cvv3cv1-tree.root']},
-            { (1    ,  -5   ,  0.5 ):     ['/home/cmilke/Documents/dihiggs/lhe_histograms/output/neo_l-5cvv1cv0p5-tree.root']},
+            { (1    ,  1   ,  1   ):     ['/home/cmilke/Documents/dihiggs/lhe_histograms/output/slurm_l1cvv1cv1-tree.root']},
+            #{ (3    ,  -9   ,  1   ):     ['/home/cmilke/Documents/dihiggs/lhe_histograms/output/neo_l-9cvv3cv1-tree.root']},
+            #{ (1    ,  -5   ,  0.5 ):     ['/home/cmilke/Documents/dihiggs/lhe_histograms/output/neo_l-5cvv1cv0p5-tree.root']},
             #{ (3    ,  -6   ,  1  ):      ['/home/cmilke/Documents/dihiggs/lhe_histograms/output/neo3_l-6cvv3cv1-tree.root']},
             #{ ( 2.5 , -4  , 1   ):      ['/home/cmilke/Documents/dihiggs/lhe_histograms/output/neo3_l-4cvv2p5cv1-tree.root']},
             #{ (-0.5 ,  8    ,  0.5 ):     ['/home/cmilke/Documents/dihiggs/lhe_histograms/output/neo_l8cvv-0p5cv0p5-tree.root']},
@@ -182,7 +184,7 @@ def main():
         ]
         for index, file_dict in enumerate(file_list):
             print('\n\nINDEX: '+str(index))
-            optimize_reco(mode='truth',extra_files=file_dict,extra_name=f'iterC{index:02d}')
+            optimize_reco(mode='truth',extra_files=file_dict,extra_name=f'iterD{index:02d}')
             #optimize_reco(mode='truth',extra_files=file_dict,extra_name=f'iterA{index:02d}')
             #optimize_reco(mode='truth',extra_files=file_dict,extra_name=f'itertmp{index:02d}')
     else:

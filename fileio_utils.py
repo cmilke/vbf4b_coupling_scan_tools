@@ -25,26 +25,6 @@ def retrieve_lhe_weights(ttree, kinematic_variable, bin_edges, stat_limit=None):
     return weights, errors
 
 
-def retrieve_lhe_weights_with_emulated_selection(ttree, bin_edges):
-    event_weights = numpy.array(ttree['weight'].array())
-    event_mhh = numpy.array(ttree['HH_m'].array())
-
-    # Perform Selections
-
-
-
-    weights = numpy.histogram(selected_event_mhh, weights=selected_event_weights, bins=bin_edges)[0]
-    errors = numpy.zeros( len(weights) )
-    event_bins = numpy.digitize(selected_event_mhh,bin_edges)-1
-    for i in range(len(errors)):
-        binned_weights = event_weights[ event_bins == i ]
-        error2_array = binned_weights**2
-        error = math.sqrt( error2_array.sum() )
-        errors[i] = error
-    return weights, errors
-
-
-
 def extract_lhe_truth_data(file_list, mHH_edges, normalize=False, stat_limit=30000, emulateSelection=False):
     weight_list, error_list = [], []
     for f in file_list:

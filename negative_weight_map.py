@@ -127,6 +127,95 @@ def single_negative_weight_map(basis_parameters, name_suffix='_base', truth_leve
                 title_suffix=f'Integral={int(integral)}')
 
 
+def multislice_negative_weight_map(basis_parameters, name_suffix='_base', truth_level=False):
+    var_edges = numpy.linspace(200, 1200, 31)
+    num_kappa_bins = 100
+    k2v_val_range = numpy.linspace(-2,4,num_kappa_bins+1)
+    kl_val_range = numpy.linspace(-14,16,num_kappa_bins+1)
+
+    if truth_level:
+        truth_data_files = fileio_utils.read_coupling_file(coupling_file='basis_files/truth_LHE_couplings.dat')
+        basis_files = [ truth_data_files[coupling] for coupling in basis_parameters ]
+        base_weights, base_errors = fileio_utils.extract_lhe_truth_data(basis_files, var_edges)
+    else:
+        data_files = fileio_utils.read_coupling_file('basis_files/nnt_coupling_file_2021Aug_test.dat')
+        base_events_list = fileio_utils.get_events(basis_parameters, data_files)
+        base_histograms = [ fileio_utils.retrieve_reco_weights(var_edges, base_events) for base_events in base_events_list ]
+        base_weights, base_errors = numpy.array(list(zip(*base_histograms)))
+
+    kv_val_range = numpy.arange(0.9, 1.125, 0.025)
+
+    # Work out how to arrange mini-plots for slice plot
+    num_slices = len(kv_val_range)
+    num_columns = math.ceil(math.sqrt(num_slices))
+    num_rows = math.ceil(num_slices / num_columns)
+    fig, ax_array = plt.subplots( nrows=num_rows, ncols=num_columns, sharex=True, sharey=True)
+
+    # Get rid of excess plots (e.g. if you have 7 slices,
+    # you need a 3x3 grid, which means 9 plots, 2 of which are not used)
+    num_axes_to_turn_off = num_rows * num_columns - num_slices
+    for index in range(num_axes_to_turn_off):
+        plot_num = num_rows * num_columns - index - 1
+        i, j = numpy.unravel_index(plot_num, (num_rows, num_columns))
+        if num_rows == 1: sub_ax = ax_array[j]
+        else: sub_ax = ax_array[i][j]
+        sub_ax.set_axis_off()
+
+    # Make all 2D plots of mod1-mod2 across the range of the 3rd coupling (slicemod)
+    # Storing mini-versions of the 2D plots for use in the final slice plot
+    for slice_index, kv_val in enumerate(kv_val_range[::-1]):
+        i, j = numpy.unravel_index(slice_index, (num_rows, num_columns))
+        if num_slices == 1: sub_ax = None
+        elif num_rows == 1: sub_ax = ax_array[j]
+        else: sub_ax = ax_array[i][j]
+
+        integral = get_Nweight_sum(basis_parameters, base_weights, kv_val, k2v_val_range, kl_val_range, grid=False)
+        negative_weight_grid = get_Nweight_sum(basis_parameters, base_weights, kv_val, k2v_val_range, kl_val_range, grid=True)
+
+        num_bins = len(var_edges) - 1
+        ranges = k2v_val_range[0], k2v_val_range[-1], kl_val_range[0], kl_val_range[-1]
+        vartitle = '$m_{HH}$'
+        plottable_couplings = [ [[],[],m] for m in ['v','o','^'] ]
+        for couplings in basis_parameters:
+            k2v, kl, kv = [float(sympy.Rational(c)) for c in couplings]
+            index = 1 if kv == kv_val else (0 if kv < kv_val else 2)
+            plottable_couplings[index][0].append(k2v)
+            plottable_couplings[index][1].append(kl)
+
+        vmin, vmax = 0, 7
+        im = sub_ax.imshow(negative_weight_grid, vmin=vmin, vmax=vmax, extent=ranges, origin='lower', cmap='plasma')
+
+        if slice_index == 0:
+            sub_ax.set_xticks(ticks = numpy.arange(ranges[0],ranges[1]+1,1))
+            sub_ax.set_yticks(ticks = numpy.linspace(ranges[2],ranges[3],7))
+
+        sub_ax.grid()
+        for (x,y,m) in plottable_couplings: sub_ax.scatter(x,y, marker=m, color='cyan', s=9)
+        sub_ax.set_aspect('auto','box')
+        fig.text(0.5, 0.04, '$\kappa_{2V}$', ha='center')
+        fig.text(0.04, 0.5, '$\kappa_{\lambda}$', va='center', rotation='vertical')
+
+        if num_slices == 1: continue
+        sub_ax.set_title( "$\kappa_{V}$ = "f"{kv_val:.2f}", fontsize="x-small")
+
+    fig.subplots_adjust(right=0.85)
+    cbar_ax = fig.add_axes([0.87, 0.11, 0.03, 0.7])
+    fig.colorbar(im, cax=cbar_ax, label='Num Bins (Out of '+str(num_bins)+' Total)')
+
+    basis_table = '$\kappa_{2V}$  ,  $\kappa_{\lambda}$  ,  $\kappa_{V}$   '
+    for coupling in basis_parameters: basis_table += '\n'+combination_utils.nice_coupling_string(coupling)
+    fig.text(.99, 1, basis_table, ha='right', va='top', fontsize='xx-small', family='monospace')
+
+    range_title = f'{var_edges[0]:.0f}-{var_edges[-1]:.0f} GeV in Bins of {var_edges[1]-var_edges[0]:.2f} GeV'
+    title  = 'Number of Bins in $m_{HH}$ with Negative Weights,\nOver $m_{HH}$ Range '+range_title
+    fig.suptitle(title, fontsize=10, fontweight='bold')
+
+    dpi=500
+    figname = 'negative_weights'+name_suffix
+    fig.savefig('plots/error_maps/multislice_'+figname+'.pdf', dpi=dpi)
+
+
+
 
 def main():
     # Sort out command-line arguments
@@ -136,17 +225,21 @@ def main():
 #
 #    args = parser.parse_args()
 
+    multislice_negative_weight_map( combination_utils.basis_full3D_2021May_minN, truth_level=False, name_suffix='nominal' )
+    multislice_negative_weight_map( combination_utils.basis_full3D_2021Aug_Neo, truth_level=False, name_suffix='neo' )
+
+
     #pdb.set_trace()
     #single_negative_weight_map(_reco_basis)
-    single_negative_weight_map( 
-        [(1.0, 1.0, 1.0), (0.5, 1.0, 1.0), (3.0, 1.0, 1.0), (1.0, 2.0, 1.0), (1.0, 10.0, 1.0), (0.0, 0.0, 1.0)],
-        truth_level=True, name_suffix='truthRtop0' )
-        #truth_level=True, name_suffix='uncappedtruthRtop0' )
+    #single_negative_weight_map( 
+    #    [(1.0, 1.0, 1.0), (0.5, 1.0, 1.0), (3.0, 1.0, 1.0), (1.0, 2.0, 1.0), (1.0, 10.0, 1.0), (0.0, 0.0, 1.0)],
+    #    truth_level=True, name_suffix='truthRtop0' )
+    #    #truth_level=True, name_suffix='uncappedtruthRtop0' )
 
-    single_negative_weight_map(
-        [(1.0, 1.0, 1.0), (0.5, 1.0, 1.0), (3.0, 1.0, 1.0), (1.0, 0.0, 1.0), (1.0, 10.0, 1.0), (0.0, 0.0, 1.0)],
-        truth_level=True, name_suffix='truthRtop1' )
-        #truth_level=True, name_suffix='uncappedtruthRtop1' )
+    #single_negative_weight_map(
+    #    [(1.0, 1.0, 1.0), (0.5, 1.0, 1.0), (3.0, 1.0, 1.0), (1.0, 0.0, 1.0), (1.0, 10.0, 1.0), (0.0, 0.0, 1.0)],
+    #    truth_level=True, name_suffix='truthRtop1' )
+    #    #truth_level=True, name_suffix='uncappedtruthRtop1' )
 
 
 if __name__ == '__main__': main()

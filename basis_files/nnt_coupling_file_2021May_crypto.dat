@@ -11,6 +11,7 @@
 1       1    0.5      /home/cmilke/Documents/dihiggs/nano_ntuples/2021_may_crypto/vbf_502979_mc16a.root
 1       1    1.5      /home/cmilke/Documents/dihiggs/nano_ntuples/2021_may_crypto/vbf_502980_mc16a.root
 0       0    1        /home/cmilke/Documents/dihiggs/nano_ntuples/2021_may_crypto/vbf_502981_mc16a.root
+1       5    0.5      /home/cmilke/Documents/dihiggs/nano_ntuples/2021_may_crypto/VBF_nonres2021_507684_MC16a-2015-2016_NanoNTuple.root
 #
 1       1    1        /home/cmilke/Documents/dihiggs/nano_ntuples/2021_may_crypto/vbf_502970_mc16d.root
 0       1    1        /home/cmilke/Documents/dihiggs/nano_ntuples/2021_may_crypto/vbf_502971_mc16d.root
@@ -24,6 +25,7 @@
 1       1    0.5      /home/cmilke/Documents/dihiggs/nano_ntuples/2021_may_crypto/vbf_502979_mc16d.root
 1       1    1.5      /home/cmilke/Documents/dihiggs/nano_ntuples/2021_may_crypto/vbf_502980_mc16d.root
 0       0    1        /home/cmilke/Documents/dihiggs/nano_ntuples/2021_may_crypto/vbf_502981_mc16d.root
+1       5    0.5      /home/cmilke/Documents/dihiggs/nano_ntuples/2021_may_crypto/VBF_nonres2021_507684_MC16d-2017_NanoNTuple.root
 #
 1       1    1        /home/cmilke/Documents/dihiggs/nano_ntuples/2021_may_crypto/vbf_502970_mc16e.root
 0       1    1        /home/cmilke/Documents/dihiggs/nano_ntuples/2021_may_crypto/vbf_502971_mc16e.root
@@ -37,4 +39,5 @@
 1       1    0.5      /home/cmilke/Documents/dihiggs/nano_ntuples/2021_may_crypto/vbf_502979_mc16e.root
 1       1    1.5      /home/cmilke/Documents/dihiggs/nano_ntuples/2021_may_crypto/vbf_502980_mc16e.root
 0       0    1        /home/cmilke/Documents/dihiggs/nano_ntuples/2021_may_crypto/vbf_502981_mc16e.root
+1       5    0.5      /home/cmilke/Documents/dihiggs/nano_ntuples/2021_may_crypto/VBF_nonres2021_507684_MC16e-2018_NanoNTuple.root
 #
